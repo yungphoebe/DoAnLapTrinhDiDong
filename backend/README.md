@@ -84,8 +84,12 @@ File `backend/AiGym.Api/appsettings.json` co:
 
 - `ConnectionStrings:DefaultConnection`: SQL Server database `AIGymDb`.
 - `Jwt:Issuer`, `Jwt:Audience`, `Jwt:Key`, `Jwt:ExpiresInMinutes`.
+- `LMStudio:BaseUrl`, `LMStudio:Model`: dia chi va model LMStudio dung cho tro ly AI.
 
 Khi dua len may that, doi `Jwt:Key` sang secret rieng va khong commit secret san xuat.
+
+LMStudio can chay tai `http://127.0.0.1:1234`, da nap model `qwen/qwen3.5-9b`,
+sau do khoi dong lai backend de ap dung cau hinh.
 
 ## Tai khoan va role seed san
 
@@ -170,39 +174,14 @@ dotnet test backend/AiGym.Api.Tests
 
 `DELETE /api/posts/{id}` can chu bai viet hoac `Admin`.
 
-### Binh luan va quyen noi dung
+### AI
 
-Tat ca endpoint bai viet/binh luan yeu cau JWT. `GET /api/posts/feed` tra them
-`commentCount` tinh tu database. Bai viet va binh luan chi duoc sua/xoa boi
-tac gia cua chinh noi dung do hoac `Admin`; chu bai khong duoc sua/xoa binh
-luan cua tai khoan khac. ID tac gia lay tu JWT, ten binh luan lay tu tai khoan.
+`POST /api/ai/chat` can dang nhap va chuyen yeu cau den LMStudio:
 
-| Endpoint | Body / ket qua |
-|---|---|
-| `GET /api/posts/{postId}/comments?page=1&pageSize=20` | `items`, `page`, `pageSize`, `hasMore`, `totalCount`; moi nhat truoc, sap xep them theo ID khi trung thoi gian |
-| `POST /api/posts/{postId}/comments` | `{"requestId":"<GUID>","content":"Noi dung"}`; 201 khi tao, 200 khi thu lai cung yeu cau |
-| `PUT /api/posts/{postId}/comments/{commentId}` | `{"content":"Noi dung da sua"}`; 200 va binh luan da luu |
-| `DELETE /api/posts/{postId}/comments/{commentId}` | 204 khi xoa thanh cong |
-
-Binh luan tra `id`, `postId`, `authorId`, `authorName`, `content`, `createdAt`,
-`updatedAt`. Noi dung binh luan va sua bai viet: 1-1000 ky tu sau khi trim.
-`page` tu 1, `pageSize` tu 1 den 100. Loi: 400 du lieu sai, 401 chua dang
-nhap, 403 khong co quyen, 404 bai/binh luan khong ton tai hoac sai cap URL.
-
-Moi lan gui binh luan moi tao mot `requestId` GUID; thu lai do mat ket noi
-phai giu nguyen ID va noi dung. Database chan trung ke ca gui dong thoi.
-Dung lai ID cho tai khoan/bai/noi dung khac, hoac gui lai yeu cau tao sau khi
-binh luan da sua, tra 409. Hay tai lai danh sach de lay trang thai moi nhat.
-
-Backend tu bo sung bang `PostComments` vao database hien co khi khoi dong
-lai; xoa bai se xoa binh luan va luot thich lien quan. Khong tao lai database.
-`POST /api/posts` la endpoint da co; dot thay doi nay khong mo rong luong tao bai.
-
-Chay kiem thu HTTP va SQL Server tren database tam rieng (giu backend dang chay):
-
-```powershell
-$env:AIGYM_TEST_SQLSERVER='Server=(localdb)\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=true'
-dotnet test backend/AiGym.Api.Tests --artifacts-path .artifacts/comments
+```json
+{
+  "message": "Goi y cho toi mot bai tap nguc cho nguoi moi."
+}
 ```
 
 ## Kiem tra

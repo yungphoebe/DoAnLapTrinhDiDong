@@ -1,509 +1,511 @@
-import 'dart:math' as math;
+import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+import '../services/camera_capture.dart';
+import '../services/lm_studio_service.dart';
+import '../services/workout_analysis.dart';
+import '../services/api_client.dart';
+import '../services/profile_service.dart';
+import '../models/workout.dart';
 import '../ui.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  const CameraScreen({super.key, this.ai, this.exercise});
+
+  final LMStudioService? ai;
+  final Exercise? exercise;
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
+class _CameraScreenState extends State<CameraScreen>
+    with WidgetsBindingObserver {
+  late final LMStudioService _ai;
+  final _elapsed = Stopwatch();
+  late final WorkoutAnalysis _analysis;
+  CameraController? _camera;
+  List<CameraDescription> _cameras = [];
+  Future<void> _cameraTask = Future.value();
+  Future<Uint8List>? _captureTask;
+  Timer? _timer;
+  String? _cameraError;
+  String _model = const String.fromEnvironment('LM_STUDIO_VISION_MODEL');
+  int _cameraIndex = 0;
+  int _cameraGeneration = 0;
+  int _ticks = 0;
+  bool _opening = true;
+  bool _foreground = true;
+  bool _started = false;
   bool _paused = false;
-  bool _muted = false;
+  bool _finishing = false;
+  DateTime? _startedAt;
+  String? _sessionToken;
+  late final String _sessionId = _newSessionId();
+
+  String _newSessionId() {
+    final random = Random.secure();
+    final bytes = List.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
+
+  bool get _canAnalyze =>
+      mounted &&
+      _foreground &&
+      !_finishing &&
+      _started &&
+      !_paused &&
+      !_opening &&
+      _camera?.value.isInitialized == true;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    body: LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        child: SizedBox(
-          height: math.max(constraints.maxHeight, 740),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                'assets/images/workout.jpg',
-                fit: BoxFit.cover,
-                alignment: const Alignment(.15, 0),
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xB3000000),
-                      Color(0x47000000),
-                      Color(0xE6111111),
-                    ],
-                    stops: [0, .4, .88],
-                  ),
-                ),
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          IconButton.filledTonal(
-                            tooltip: 'Quay lại',
-                            onPressed: () => Navigator.pop(context),
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0x77242424),
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(
-                              Icons.chevron_left_rounded,
-                              size: 25,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Barbell Squat',
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0x99242424),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.timer_outlined,
-                                  size: 14,
-                                  color: GymColors.purple,
-                                ),
-                                SizedBox(width: 5),
-                                Text(
-                                  '00:42',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'SỐ LẦN',
-                                style: TextStyle(
-                                  color: Color(0xFFD4D4D4),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                              const Text(
-                                '08',
-                                style: TextStyle(
-                                  fontSize: 72,
-                                  height: 1.12,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Text(
-                                '/ 12 lần',
-                                style: TextStyle(
-                                  color: Color(0xFFB0B0B0),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xB32B2533),
-                              border: Border.all(
-                                color: const Color(0x665B476E),
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: const BoxDecoration(
-                                    color: GymColors.purple,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'BẢN DEMO',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: Color(0xFFDCC1F5),
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Expanded(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Semantics(
-                              label: 'Minh họa khung xương tĩnh của động tác squat',
-                              child: const CustomPaint(
-                                painter: _SkeletonPainter(),
-                              ),
-                            ),
-                            Positioned(
-                              right: 0,
-                              top: 40,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xAA171D1D),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: const Color(0x554CF0DA),
-                                  ),
-                                ),
-                                child: const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'GÓC ĐẦU GỐI',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        letterSpacing: .7,
-                                        color: Color(0xFFB4C1BD),
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      '92°',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF58F1DC),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (_paused)
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                    vertical: 13,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xE6111111),
-                                    border: Border.all(color: GymColors.border),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Text(
-                                    'Đã tạm dừng',
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            const Positioned(
-                              bottom: 14,
-                              left: 0,
-                              right: 0,
-                              child: Text(
-                                'Ảnh & chỉ số minh họa • Camera chưa được kết nối',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: Color(0xFFAAAAAA),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _FeedbackBanner(
-                        icon: Icons.warning_amber_rounded,
-                        label: 'Giữ thẳng lưng • Hông ngả sau',
-                        color: const Color(0xFFFF555E),
-                        background: const Color(0xD94D2026),
-                      ),
-                      const SizedBox(height: 9),
-                      _FeedbackBanner(
-                        icon: Icons.check_circle_outline_rounded,
-                        label: 'Đạt độ sâu tối đa',
-                        color: GymColors.green,
-                        background: const Color(0xD91D3A29),
-                      ),
-                      const SizedBox(height: 25),
-                      Row(
-                        children: [
-                          IconButton.filledTonal(
-                            tooltip: _muted ? 'Bật âm thanh' : 'Tắt âm thanh',
-                            onPressed: () {
-                              setState(() => _muted = !_muted);
-                              showMessage(
-                                context,
-                                _muted ? 'Đã tắt âm thanh hướng dẫn mẫu.' : 'Đã bật âm thanh. Bản demo chưa có lời hướng dẫn.',
-                              );
-                            },
-                            style: IconButton.styleFrom(
-                              minimumSize: const Size(52, 52),
-                              backgroundColor: const Color(0xFF2A2A2A),
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: Icon(
-                              _muted
-                                  ? Icons.volume_off_rounded
-                                  : Icons.volume_up_rounded,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: PrimaryButton(
-                              label: _paused ? 'Tiếp tục' : 'Tạm dừng',
-                              icon: _paused
-                                  ? Icons.play_arrow_rounded
-                                  : Icons.pause_rounded,
-                              onPressed: () =>
-                                  setState(() => _paused = !_paused),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          FilledButton(
-                            onPressed: _finish,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF474D),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(0, 50),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                            ),
-                            child: const Text(
-                              'KẾT THÚC',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: .5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
+  void initState() {
+    super.initState();
+    _ai = widget.ai ?? LMStudioService();
+    WidgetsBinding.instance.addObserver(this);
+    _analysis = WorkoutAnalysis(
+      capture: () async {
+        if (_model.trim().isEmpty) {
+          final models = await _ai.getModels();
+          if (models.isEmpty) {
+            throw Exception('Chưa tải model trong LM Studio.');
+          }
+          _model = models.first;
+        }
+        if (!_canAnalyze) throw StateError('Phiên phân tích đã dừng.');
+        final capture = captureCameraFrame(_camera!);
+        _captureTask = capture;
+        try {
+          return await capture;
+        } finally {
+          _captureTask = null;
+        }
+      },
+      analyze: (bytes) async {
+        return _ai.analyzeImage(
+          modelId: _model.trim(),
+          imageBytes: bytes,
+          prompt:
+              'Bạn là trợ lý quan sát tư thế ${widget.exercise?.name ?? 'tập luyện'}. '
+              'Nhận xét ảnh hiện tại '
+              'bằng tiếng Việt, tối đa 3 câu ngắn. Chỉ mô tả những gì nhìn thấy '
+              'và gợi ý chỉnh tư thế nếu có cơ sở. Nếu không thấy rõ toàn thân, '
+              'hãy yêu cầu chỉnh vị trí camera. Không bịa góc khớp, số lần tập '
+              'hay khẳng định động tác an toàn từ một ảnh.',
+        );
+      },
+    )..addListener(_refresh);
+    _restartCamera();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_canAnalyze && ++_ticks % 3 == 0) {
+        unawaited(_analysis.process());
+      }
+      setState(() {});
+    });
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  void _cameraChanged() {
+    final value = _camera?.value;
+    if (!mounted || value == null || !value.hasError) return;
+    _analysis.setPaused(true);
+    _elapsed.stop();
+    setState(
+      () => _cameraError =
+          'Camera đã ngừng hoạt động. '
+          'Kiểm tra thiết bị rồi thử lại.\n${value.errorDescription}',
+    );
+  }
+
+  Future<void> _releaseCamera(CameraController? camera) async {
+    camera?.removeListener(_cameraChanged);
+    try {
+      await _captureTask;
+    } catch (_) {
+      // WorkoutAnalysis reports capture errors; disposal must still run.
+    }
+    await camera?.dispose();
+  }
+
+  // Serialize opening and disposal, including navigation during permission prompts.
+  void _restartCamera() {
+    final generation = ++_cameraGeneration;
+    _analysis.setPaused(true);
+    _elapsed.stop();
+    if (mounted) setState(() => _opening = true);
+    _cameraTask = _cameraTask.then((_) async {
+      if (generation != _cameraGeneration) return;
+      final previous = _camera;
+      _camera = null;
+      CameraController? next;
+      try {
+        await _releaseCamera(previous);
+        if (!mounted ||
+            !_foreground ||
+            _finishing ||
+            generation != _cameraGeneration) {
+          return;
+        }
+        _cameras = await availableCameras();
+        if (!mounted ||
+            !_foreground ||
+            _finishing ||
+            generation != _cameraGeneration) {
+          return;
+        }
+        if (_cameras.isEmpty) {
+          throw CameraException('NoCamera', 'Không tìm thấy camera.');
+        }
+        _cameraIndex %= _cameras.length;
+        next = CameraController(
+          _cameras[_cameraIndex],
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+        await next.initialize();
+        if (!mounted ||
+            !_foreground ||
+            _finishing ||
+            generation != _cameraGeneration) {
+          await next.dispose();
+          return;
+        }
+        _camera = next;
+        next.addListener(_cameraChanged);
+        _cameraError = null;
+        _analysis.setPaused(!_started || _paused);
+        if (_started && !_paused) _elapsed.start();
+      } catch (error) {
+        await next?.dispose();
+        if (mounted) {
+          _cameraError =
+              error is CameraException &&
+                  error.code.toLowerCase().contains('denied')
+              ? 'Quyền camera bị từ chối. Hãy cho phép camera trong cài đặt '
+                    'ứng dụng hoặc trình duyệt, rồi thử lại.'
+              : 'Không mở được camera. Kiểm tra thiết bị, quyền truy cập '
+                    'và đóng ứng dụng khác đang dùng camera.\n$error';
+        }
+      } finally {
+        if (mounted && generation == _cameraGeneration) {
+          setState(() => _opening = false);
+        }
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _foreground = false;
+      _restartCamera();
+    } else if (state == AppLifecycleState.resumed && !_foreground) {
+      _foreground = true;
+      _restartCamera();
+    }
+  }
+
+  void _toggleAnalysis() {
+    setState(() {
+      if (!_started) {
+        _started = true;
+        _startedAt = DateTime.now().toUtc();
+        _sessionToken = ApiClient.instance.token;
+      } else {
+        _paused = !_paused;
+      }
+      _analysis.setPaused(_paused);
+      if (_paused) {
+        _elapsed.stop();
+      } else {
+        _elapsed.start();
+      }
+    });
+    if (_canAnalyze) unawaited(_analysis.process());
+  }
 
   Future<void> _finish() async {
-    setState(() => _paused = true);
+    if (_finishing) return;
+    _paused = true;
+    _finishing = true;
+    _restartCamera();
+    final seconds = _elapsed.elapsed.inSeconds;
+    var saved = false;
+    var saving = false;
+    String? saveError;
+    Future<void> save() async {
+      try {
+        if (_sessionToken == null ||
+            _sessionToken != ApiClient.instance.token) {
+          throw ApiException(401, 'Vui lòng đăng nhập để lưu phiên tập.');
+        }
+
+        await ProfileService.instance.saveWorkout(
+          id: _sessionId,
+          startedAt: _startedAt!,
+          durationSeconds: seconds,
+        );
+        saved = true;
+        saveError = null;
+      } catch (_) {
+        saveError = 'Chưa lưu được phiên tập. Kiểm tra kết nối và thử lại.';
+      }
+    }
+
+    if (seconds > 0 && _startedAt != null) await save();
+    if (!mounted) return;
     final leave = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                color: GymColors.green,
-                size: 44,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, update) => PopScope(
+          canPop: false,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Hoàn thành buổi tập',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('$seconds giây phân tích'),
+                  const SizedBox(height: 12),
+                  Text(
+                    saved
+                        ? 'Đã lưu vào tài khoản của bạn.'
+                        : saveError ?? 'Chưa có thời gian tập để lưu.',
+                  ),
+                  if (saveError != null)
+                    TextButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              update(() => saving = true);
+                              await save();
+                              if (context.mounted) update(() => saving = false);
+                            },
+                      child: Text(saving ? 'Đang lưu...' : 'Thử lưu lại'),
+                    ),
+                  const SizedBox(height: 24),
+                  PrimaryButton(
+                    label: saveError == null
+                        ? 'Về trang chủ'
+                        : 'Thoát không lưu',
+                    onPressed: saving
+                        ? null
+                        : () => Navigator.pop(sheetContext, true),
+                  ),
+                ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (leave == true) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _confirmExit() async {
+    if (!_started || _finishing) return;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Thoát phiên tập?'),
+        content: const Text(
+          'Phiên tập sẽ được dừng và lưu thời lượng hiện tại trước khi thoát.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Ở lại'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Thoát và lưu'),
+          ),
+        ],
+      ),
+    );
+    if (leave == true && mounted) await _finish();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    _elapsed.stop();
+    _analysis.dispose();
+    _foreground = false;
+    _camera?.removeListener(_cameraChanged);
+    unawaited(_cameraTask.then((_) => _releaseCamera(_camera)));
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = _camera;
+    final seconds = _elapsed.elapsed.inSeconds;
+    return PopScope(
+      canPop: !_started || _finishing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_confirmExit());
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          title: const Text('Camera AI'),
+          actions: [
+            if (_cameras.length > 1)
+              IconButton(
+                tooltip: 'Đổi camera',
+                onPressed: _opening || _analysis.busy
+                    ? null
+                    : () {
+                        _cameraIndex++;
+                        _restartCamera();
+                      },
+                icon: const Icon(Icons.cameraswitch_outlined),
+              ),
+          ],
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (!_opening &&
+                  _cameraError == null &&
+                  camera?.value.isInitialized == true)
+                SizedBox(
+                  height: MediaQuery.sizeOf(context).height * .5,
+                  child: Center(child: CameraPreview(camera!)),
+                )
+              else
+                AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: _opening
+                      ? const Center(child: CircularProgressIndicator())
+                      : _cameraError != null
+                      ? Center(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.videocam_off_outlined,
+                                  size: 40,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _cameraError!,
+                                  textAlign: TextAlign.center,
+                                ),
+                                TextButton(
+                                  onPressed: _restartCamera,
+                                  child: const Text('Thử lại'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : const Center(child: Text('Camera đã dừng')),
+                ),
               const SizedBox(height: 16),
-              const Text(
-                'Hoàn thành buổi tập mẫu',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+              Text(
+                _paused
+                    ? 'Đã tạm dừng'
+                    : '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
+                          '${(seconds % 60).toString().padLeft(2, '0')}',
+                style: const TextStyle(fontSize: 20),
               ),
               const SizedBox(height: 12),
-              const Text(
-                '8 lần Squat • 42 giây',
-                style: TextStyle(
-                  color: GymColors.purple,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+              if (!_started) ...[
+                TextFormField(
+                  initialValue: _model,
+                  decoration: const InputDecoration(
+                    labelText: 'Model hình ảnh (LM Studio)',
+                    hintText: 'Để trống: dùng model đang tải đầu tiên',
+                  ),
+                  onChanged: (value) => _model = value,
                 ),
-              ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Bắt đầu để gửi ảnh camera định kỳ tới máy chủ '
+                  'LM Studio đã cấu hình. Cần model hỗ trợ hình ảnh. '
+                  'Đặt camera sao cho thấy rõ toàn thân.',
+                ),
+              ],
+              if (_analysis.busy && !_paused) ...[
+                const LinearProgressIndicator(),
+                const SizedBox(height: 8),
+                const Text('AI đang phân tích ảnh…'),
+              ],
+              if (_analysis.error != null)
+                Text(
+                  'Chưa phân tích được ảnh. Kiểm tra LM Studio, model '
+                  'hình ảnh và kết nối mạng.\n${_analysis.error}',
+                  style: const TextStyle(color: Colors.orangeAccent),
+                )
+              else if (_analysis.feedback != null)
+                Text(_analysis.feedback!, style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 8),
-              const Text(
-                'Kết quả minh họa, chưa được ghi vào lịch sử tập luyện.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: GymColors.muted,
-                  fontSize: 12,
-                  height: 1.5,
-                ),
+              Text(
+                'Bài đang chọn: ${widget.exercise?.name ?? 'Tập tự do'}. '
+                'Phản hồi theo từng ảnh, không đếm số lần hoặc đo góc khớp. '
+                'Tốc độ phụ thuộc model AI.',
+                style: TextStyle(color: GymColors.muted, fontSize: 12),
               ),
-              const SizedBox(height: 24),
-              PrimaryButton(
-                label: 'Về trang chủ',
-                onPressed: () => Navigator.pop(sheetContext, true),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed:
+                        _opening || _cameraError != null || camera == null
+                        ? null
+                        : _toggleAnalysis,
+                    icon: Icon(
+                      _started && !_paused ? Icons.pause : Icons.play_arrow,
+                    ),
+                    label: Text(
+                      !_started
+                          ? 'Bắt đầu phân tích'
+                          : _paused
+                          ? 'Tiếp tục'
+                          : 'Tạm dừng',
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: _finish,
+                    child: const Text('KẾT THÚC'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
-    if (leave == true && mounted) Navigator.pop(context);
   }
-}
-
-class _FeedbackBanner extends StatelessWidget {
-  const _FeedbackBanner({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.background,
-  });
-  final IconData icon;
-  final String label;
-  final Color color;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-    decoration: BoxDecoration(
-      color: background,
-      border: Border.all(color: color.withValues(alpha: .3)),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: color, size: 19),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _SkeletonPainter extends CustomPainter {
-  const _SkeletonPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = [
-      Offset(size.width * .48, size.height * .07),
-      Offset(size.width * .43, size.height * .23),
-      Offset(size.width * .60, size.height * .25),
-      Offset(size.width * .27, size.height * .37),
-      Offset(size.width * .75, size.height * .39),
-      Offset(size.width * .24, size.height * .21),
-      Offset(size.width * .78, size.height * .20),
-      Offset(size.width * .39, size.height * .49),
-      Offset(size.width * .58, size.height * .50),
-      Offset(size.width * .22, size.height * .63),
-      Offset(size.width * .73, size.height * .64),
-      Offset(size.width * .27, size.height * .88),
-      Offset(size.width * .68, size.height * .89),
-    ];
-    const bones = [
-      (0, 1),
-      (0, 2),
-      (1, 2),
-      (1, 3),
-      (3, 5),
-      (2, 4),
-      (4, 6),
-      (1, 7),
-      (2, 8),
-      (7, 8),
-      (7, 9),
-      (9, 11),
-      (8, 10),
-      (10, 12),
-    ];
-    final paint = Paint()
-      ..color = const Color(0xFF50F4E7)
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
-    final glow = Paint()
-      ..color = const Color(0x8850F4E7)
-      ..strokeWidth = 7
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-    for (final (a, b) in bones) {
-      canvas.drawLine(points[a], points[b], glow);
-      canvas.drawLine(points[a], points[b], paint);
-    }
-    for (final point in points) {
-      canvas.drawCircle(point, 5, Paint()..color = const Color(0xAA143D38));
-      canvas.drawCircle(point, 3, paint);
-    }
-    final arcPaint = Paint()
-      ..color = const Color(0xFFE4EA46)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    canvas.drawArc(
-      Rect.fromCircle(center: points[10], radius: 20),
-      math.pi * .96,
-      math.pi * .58,
-      false,
-      arcPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SkeletonPainter oldDelegate) => false;
 }

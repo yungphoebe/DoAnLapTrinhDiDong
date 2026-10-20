@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI GYM · Camera chuyển động</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;background:#111;color:#f5f5f5;font:15px system-ui,sans-serif;padding:16px;line-height:1.5}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}h1{font-size:19px;margin:0}h2{font-size:16px;margin:0 0 8px}
+    button,select{font:inherit;color:inherit;background:#252525;border:1px solid #444;border-radius:10px;padding:10px 12px;cursor:pointer}button:disabled{opacity:.45;cursor:default}button.primary{background:#983bfa;border-color:#983bfa}
+    .viewer{position:relative;background:#050505;border-radius:14px;overflow:hidden;min-height:220px;aspect-ratio:4/3}
+    video,canvas{position:absolute;width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
+    .badge{position:absolute;top:10px;left:10px;padding:4px 9px;border-radius:20px;background:#111d;font-size:12px}
+    .panel{background:#1e1e1e;border:1px solid #323232;border-radius:14px;padding:14px;margin-top:12px}.muted{color:#aaa;font-size:12px}p{margin:8px 0}
+    .counts{display:flex;gap:20px;flex-wrap:wrap}.count strong{font-size:28px;display:block}.count span{font-size:12px;color:#aaa}.actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+    #feedback{color:#e6c3ff;min-height:45px}#status{min-height:24px}select{width:100%;margin:6px 0}label{display:block}input{accent-color:#983bfa}#summary{white-space:pre-line}
+  </style>
+</head>
+<body>
+  <header><h1>Camera chuyển động</h1><button id="close" aria-label="Đóng camera">Đóng</button></header>
+  <div class="viewer"><video id="video" autoplay muted playsinline></video><canvas id="skeleton"></canvas><span id="badge" class="badge">Camera chưa mở</span></div>
+  <p id="status" role="status">Bấm Mở camera để tải bộ nhận diện và cho phép camera.</p>
+  <div class="panel">
+    <label for="exercise">Bài tập</label>
+    <select id="exercise"><option value="auto">Tự nhận diện trong 3 bài</option><option value="squat">Squat · quay ngang</option><option value="pushup">Chống đẩy · quay ngang</option><option value="jumpingJack">Jumping Jack · quay chính diện</option></select>
+    <p class="muted">Để thấy toàn thân và đủ sáng. Squat/chống đẩy: quay ngang; Jumping Jack: quay chính diện. Nếu khó phân biệt bài, chọn bài thủ công.</p>
+    <div class="counts"><div class="count"><strong id="reps">0</strong><span>Reps hoàn thành</span></div><div class="count"><strong id="correct">0</strong><span>Đạt quy tắc</span></div><div class="count"><strong id="incorrect">0</strong><span>Có lỗi tư thế</span></div><div class="count"><strong id="time">00:00</strong><span>Thời gian hoạt động</span></div></div>
+    <p id="feedback" aria-live="polite">Chưa có dữ liệu chuyển động.</p>
+    <label><input type="checkbox" id="voice"> Hướng dẫn giọng nói tiếng Việt</label>
+    <p id="voice-note" class="muted"></p>
+    <div class="actions"><button id="start" class="primary">Mở camera</button><button id="pause" disabled>Tạm dừng</button><button id="finish" disabled>Kết thúc & lưu</button></div>
+    <p class="muted">Đánh giá theo góc khớp nhìn thấy, không phải kết luận an toàn y khoa. Mất dấu người sẽ ngừng đếm. Video được xử lý tại máy; chỉ kết quả phiên tập được lưu.</p>
+  </div>
+  <div id="result" class="panel" hidden><h2>Kết quả phiên tập</h2><p id="summary"></p><p id="save-status" role="status"></p><button id="retry" hidden>Thử lưu lại</button></div>
+  <script type="module" src="pose_camera.mjs"></script>
+</body>
+</html>

@@ -18,6 +18,7 @@ void main() {
           routes: {'/coach-settings': (_) => const CoachSettingsScreen()},
         ),
       );
+      await tester.scrollUntilVisible(find.text('Cài đặt AI Coach'), 300);
       await tester.tap(find.text('Cài đặt AI Coach'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Nữ nhẹ nhàng'));

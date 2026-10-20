@@ -32,16 +32,17 @@ class ApiClient {
   Uri uri(String path) => Uri.parse('$_baseUrl$path');
 
   static String _defaultBaseUrl(bool isWeb) {
-    if (_configuredBaseUrl.isNotEmpty) {
-      return _configuredBaseUrl;
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
+    if (isWeb || defaultTargetPlatform == TargetPlatform.windows) {
+      return 'http://localhost:5129';
     }
-    return isWeb ? 'http://localhost:5129' : 'http://10.0.2.2:5129';
+    return 'http://10.0.2.2:5129';
   }
 
   Map<String, String> headers({bool includeAuth = false}) {
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (includeAuth && token != null && token!.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+      headers['Authorization'] = 'Bearer ${token!}';
     }
     return headers;
   }

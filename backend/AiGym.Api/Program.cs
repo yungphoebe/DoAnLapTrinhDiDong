@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<LmStudioOptions>(builder.Configuration.GetSection("LMStudio"));
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -72,9 +73,14 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
-builder.Services.AddScoped<NotificationScheduler>();
-builder.Services.AddSingleton<NotificationPush>();
-if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<NotificationWorker>();
+builder.Services.AddHttpClient<ILmStudioService, LmStudioService>((serviceProvider, client) =>
+{
+    var options = serviceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<LmStudioOptions>>()
+        .Value;
+    client.BaseAddress = new Uri($"{options.BaseUrl.TrimEnd('/')}/");
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();

@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ui.dart';
-import '../notifications/controller.dart';
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
+import '../services/profile_service.dart';
+import '../services/health_service.dart';
+import '../models/health_workout.dart';
+import '../services/coach_voice_service.dart';
 
 // Session-only preferences for the UI demo.
-final _preferences = _Preferences();
+var _preferences = _Preferences();
 
 class _Preferences {
-  String name = 'Minh Trí';
   int voice = 0, motivation = 1;
-  bool water = true, weekly = true, haptic = false;
+  bool water = true, weekly = true, haptic = false, sound = true;
   bool reminder = true, camera = true;
 }
 
@@ -21,10 +25,34 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final _health = HealthService();
+  HealthIntegrationStatus? _healthStatus;
+
+  Future<void> _connectHealth() async {
+    final status = await _health.requestPermission();
+    if (!mounted) return;
+    setState(() => _healthStatus = status);
+    final message = switch (status.state) {
+      HealthIntegrationState.ready => 'Đã kết nối dữ liệu sức khỏe.',
+      HealthIntegrationState.unsupported =>
+        'Thiết bị không hỗ trợ Health Connect hoặc Apple Health.',
+      HealthIntegrationState.permissionDenied =>
+        'Quyền sức khỏe bị từ chối. Bạn có thể cấp lại trong cài đặt thiết bị.',
+      HealthIntegrationState.error =>
+        'Không thể kết nối: ${status.message ?? 'lỗi không xác định'}.',
+      HealthIntegrationState.permissionRequired =>
+        'Cần cấp quyền sức khỏe để đồng bộ.',
+    };
+    if (mounted) showMessage(context, message);
+  }
+
   @override
   void initState() {
     super.initState();
-    NotificationController.instance.load();
+    if (ProfileService.instance.profile == null &&
+        ApiClient.instance.token != null) {
+      Future.microtask(ProfileService.instance.load);
+    }
   }
 
   Future<void> _editProfile() async {
@@ -32,177 +60,249 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) => const _NameDialog(),
     );
-    if (mounted && name != null) setState(() => _preferences.name = name);
+    if (!mounted || name == null) return;
+    try {
+      await ProfileService.instance.save({'fullName': name});
+      if (mounted) showMessage(context, 'Đã lưu hồ sơ.');
+    } catch (error) {
+      if (mounted) showMessage(context, 'Không thể lưu hồ sơ: $error');
+    }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: const CircleBackButton(),
-      title: const Text('Cài đặt hệ thống'),
-    ),
-    body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
-        children: [
-          GymCard(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                const CircleAvatar(
-                  radius: 23,
-                  backgroundImage: AssetImage('assets/images/avatar.jpg'),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _preferences.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'tri.nguyen@gym.ai',
-                        style: TextStyle(fontSize: 10, color: GymColors.muted),
-                      ),
-                    ],
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: ProfileService.instance,
+    builder: (context, _) => Scaffold(
+      appBar: AppBar(
+        leading: const CircleBackButton(),
+        title: const Text('Cài đặt hệ thống'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
+          children: [
+            GymCard(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 23,
+                    child: Icon(Icons.person_outline),
                   ),
-                ),
-                TextButton(
-                  onPressed: _editProfile,
-                  child: const Text(
-                    'Chỉnh sửa',
-                    style: TextStyle(fontSize: 11),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ProfileService.instance.profile?['fullName']
+                                  as String? ??
+                              'Chưa có dữ liệu',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          ProfileService.instance.profile?['email']
+                                  as String? ??
+                              'Chưa có dữ liệu',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: GymColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          _section('TÀI KHOẢN'),
-          _row(
-            Icons.lock_outline,
-            'Đổi mật khẩu',
-            onTap: () => Navigator.pushNamed(context, '/forgot'),
-          ),
-          _row(
-            Icons.language,
-            'Ngôn ngữ',
-            value: 'Tiếng Việt',
-            onTap: () =>
-                showMessage(context, 'Bản giao diện hiện hỗ trợ Tiếng Việt.'),
-          ),
-          _row(
-            Icons.balance_outlined,
-            'Đơn vị đo lường',
-            value: 'Metric (kg/cm)',
-            onTap: () =>
-                showMessage(context, 'Chỉ số trong bản mẫu sử dụng kg và cm.'),
-          ),
-          _section('AI COACH & HUẤN LUYỆN'),
-          _row(
-            Icons.psychology_outlined,
-            'Cài đặt AI Coach',
-            value:
-                'Giọng: ${_preferences.voice == 0 ? 'Nam trầm' : 'Nữ nhẹ nhàng'}',
-            onTap: () async {
-              await Navigator.pushNamed(context, '/coach-settings');
-              if (mounted) setState(() {});
-            },
-          ),
-          _row(
-            Icons.emoji_events_outlined,
-            'Nhắc nhở tập luyện',
-            trailing: AnimatedBuilder(
-              animation: NotificationController.instance,
-              builder: (context, _) {
-                final c = NotificationController.instance;
-                return _switch(c.localSettings.workoutEnabled, (v) async {
-                  if (c.saving) return;
-                  final saved = await c.save(
-                    c.localSettings.copyWith(workoutEnabled: v),
-                  );
-                  if (context.mounted) {
-                    showMessage(
-                      context,
-                      saved
-                          ? 'Đã lưu nhắc tập.'
-                          : c.error ?? 'Chưa lưu được cài đặt.',
-                    );
-                  }
-                });
-              },
-            ),
-          ),
-          _row(
-            Icons.notifications_outlined,
-            'Lịch nhắc & thông báo',
-            onTap: () => Navigator.pushNamed(context, '/reminder-settings'),
-          ),
-          _row(
-            Icons.monitor_heart_outlined,
-            'Đồng bộ sức khỏe',
-            value: 'Apple Health',
-            onTap: () => showMessage(
-              context,
-              'Apple Health chưa được kết nối. Các chỉ số hiện là dữ liệu mẫu.',
-            ),
-          ),
-          _section('QUYỀN RIÊNG TƯ'),
-          _row(
-            Icons.camera_alt_outlined,
-            'Quyền truy cập Camera (AI)',
-            trailing: _switch(_preferences.camera, (v) {
-              setState(() => _preferences.camera = v);
-              showMessage(
-                context,
-                'Công tắc minh họa; chưa yêu cầu quyền camera trên thiết bị.',
-              );
-            }),
-          ),
-          _row(
-            Icons.help_outline,
-            'Trợ giúp & Phản hồi',
-            onTap: () => Navigator.pushNamed(context, '/support'),
-          ),
-          const SizedBox(height: 25),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              backgroundColor: GymColors.surface,
-              foregroundColor: const Color(0xFFFF5757),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                  TextButton(
+                    onPressed:
+                        ProfileService.instance.loading ||
+                            ProfileService.instance.profile == null
+                        ? null
+                        : _editProfile,
+                    child: const Text(
+                      'Chỉnh sửa',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ],
               ),
             ),
-            onPressed: () async {
-              await AuthService().logout();
-              if (context.mounted) {
+            if (ProfileService.instance.error != null)
+              TextButton(
+                onPressed: ProfileService.instance.load,
+                child: Text('${ProfileService.instance.error} · Thử lại'),
+              ),
+            _section('THÔNG TIN CƠ THỂ & MỤC TIÊU'),
+            _row(
+              Icons.height,
+              'Chiều cao',
+              value: _profileValue('heightCm', ' cm'),
+            ),
+            _row(
+              Icons.monitor_weight_outlined,
+              'Cân nặng',
+              value: _profileValue('weightKg', ' kg'),
+            ),
+            _row(Icons.cake_outlined, 'Tuổi', value: _profileValue('age')),
+            _row(
+              Icons.person_outline,
+              'Giới tính',
+              value: _profileValue('gender'),
+            ),
+            _row(Icons.flag_outlined, 'Mục tiêu', value: _profileValue('goal')),
+            _row(
+              Icons.calendar_today,
+              'Lịch tập',
+              value: _profileValue('trainingDays', ' buổi/tuần'),
+            ),
+            _row(
+              Icons.fitness_center,
+              'Trình độ',
+              value: _profileValue('trainingLevel'),
+            ),
+            _row(
+              Icons.place_outlined,
+              'Địa điểm tập',
+              value: _profileValue('trainingLocation'),
+            ),
+            TextButton(
+              onPressed: ProfileService.instance.profile == null
+                  ? null
+                  : () => Navigator.pushNamed(context, '/onboarding'),
+              child: const Text('Cập nhật thông tin cơ thể & mục tiêu'),
+            ),
+            _section('TÀI KHOẢN'),
+            _row(
+              Icons.history,
+              'Lịch sử tập luyện',
+              onTap: () => Navigator.pushNamed(context, '/workout-history'),
+            ),
+            _row(
+              Icons.lock_outline,
+              'Đổi mật khẩu',
+              onTap: () => Navigator.pushNamed(context, '/forgot'),
+            ),
+            _row(
+              Icons.language,
+              'Ngôn ngữ',
+              value: 'Tiếng Việt',
+              onTap: () =>
+                  showMessage(context, 'Bản giao diện hiện hỗ trợ Tiếng Việt.'),
+            ),
+            _row(
+              Icons.balance_outlined,
+              'Đơn vị đo lường',
+              value: 'Metric (kg/cm)',
+              onTap: () => showMessage(
+                context,
+                'Chỉ số trong bản mẫu sử dụng kg và cm.',
+              ),
+            ),
+            _section('AI COACH & HUẤN LUYỆN'),
+            _row(
+              Icons.restaurant_outlined,
+              'Nhật ký dinh dưỡng',
+              value: 'Calo & macro',
+              onTap: () => Navigator.pushNamed(context, '/nutrition'),
+            ),
+            _row(
+              Icons.psychology_outlined,
+              'Cài đặt AI Coach',
+              value:
+                  'Giọng: ${_preferences.voice == 0 ? 'Nam trầm' : 'Nữ nhẹ nhàng'}',
+              onTap: () async {
+                await Navigator.pushNamed(context, '/coach-settings');
+                if (mounted) setState(() {});
+              },
+            ),
+            _row(
+              Icons.emoji_events_outlined,
+              'Nhắc nhở tập luyện',
+              trailing: _switch(
+                _preferences.reminder,
+                (v) => setState(() => _preferences.reminder = v),
+              ),
+            ),
+            _row(
+              Icons.monitor_heart_outlined,
+              'Đồng bộ sức khỏe',
+              value: _healthStatus?.state == HealthIntegrationState.ready
+                  ? 'Đã kết nối'
+                  : 'Chưa kết nối',
+              onTap: _connectHealth,
+            ),
+            _section('QUYỀN RIÊNG TƯ'),
+            _row(
+              Icons.camera_alt_outlined,
+              'Quyền truy cập Camera (AI)',
+              trailing: _switch(_preferences.camera, (v) {
+                setState(() => _preferences.camera = v);
+                showMessage(
+                  context,
+                  'Công tắc minh họa; chưa yêu cầu quyền camera trên thiết bị.',
+                );
+              }),
+            ),
+            _row(
+              Icons.help_outline,
+              'Trợ giúp & Phản hồi',
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('AI GYM — bản giao diện'),
+                  content: const Text(
+                    'Khám phá các trang bằng thanh điều hướng. Dữ liệu tập luyện, hội thoại, thông báo và kết nối huấn luyện viên đều được minh họa trong phiên này.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Đóng'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 25),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: GymColors.surface,
+                foregroundColor: const Color(0xFFFF5757),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () async {
+                await AuthService().logout();
+                _preferences = _Preferences();
+                if (!context.mounted) return;
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/login',
                   (_) => false,
                 );
-              }
-            },
-            icon: const Icon(Icons.logout, size: 18),
-            label: const Text(
-              'Đăng xuất tài khoản',
-              style: TextStyle(fontSize: 12),
+              },
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text(
+                'Đăng xuất tài khoản',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, '/support'),
-            child: const Text(
-              'Phiên bản & thông tin ứng dụng',
-              style: TextStyle(fontSize: 10),
+            const SizedBox(height: 10),
+            const Text(
+              'Phiên bản giao diện 1.0.0 | AI GYM',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 9, color: GymColors.muted),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
+
+  String _profileValue(String key, [String unit = '']) {
+    final value = ProfileService.instance.profile?[key];
+    return value == null ? 'Chưa có dữ liệu' : '$value$unit';
+  }
 
   Widget _row(
     IconData icon,
@@ -268,37 +368,77 @@ class CoachSettingsScreen extends StatefulWidget {
 }
 
 class _CoachSettingsScreenState extends State<CoachSettingsScreen> {
+  final _voiceService = CoachVoiceService();
   late int _voice = _preferences.voice;
   late int _motivation = _preferences.motivation;
-  late bool _water = NotificationController.instance.localSettings.waterEnabled,
-      _weekly = NotificationController.instance.localSettings.weeklyEnabled,
-      _haptic = _preferences.haptic;
+  late bool _water = _preferences.water,
+      _weekly = _preferences.weekly,
+      _haptic = _preferences.haptic,
+      _sound = _preferences.sound;
+  List<Map<String, String>> _voices = [];
 
-  bool _saving = false;
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _voice = preferences.getInt('coach.voice') ?? _voice;
+      _motivation = preferences.getInt('coach.motivation') ?? _motivation;
+      _water = preferences.getBool('coach.water') ?? _water;
+      _weekly = preferences.getBool('coach.weekly') ?? _weekly;
+      _haptic = preferences.getBool('coach.haptic') ?? _haptic;
+      _sound = preferences.getBool('coach.sound') ?? _sound;
+    });
+    final voices = await _voiceService.voices();
+    if (mounted) setState(() => _voices = voices);
+  }
+
   Future<void> _save() async {
-    if (_saving) return;
-    final c = NotificationController.instance;
-    if (_water != c.localSettings.waterEnabled ||
-        _weekly != c.localSettings.weeklyEnabled) {
-      setState(() => _saving = true);
-      final saved = await c.save(
-        c.localSettings.copyWith(waterEnabled: _water, weeklyEnabled: _weekly),
-      );
-      if (!mounted) return;
-      setState(() => _saving = false);
-      if (!saved) {
-        showMessage(context, c.error ?? 'Chưa lưu được cài đặt.');
-        return;
-      }
-    }
     _preferences
       ..voice = _voice
       ..motivation = _motivation
       ..water = _water
       ..weekly = _weekly
-      ..haptic = _haptic;
+      ..haptic = _haptic
+      ..sound = _sound;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences
+        .setInt('coach.voice', _voice)
+        .then(
+          (_) => _voices.isEmpty
+              ? Future.value(true)
+              : preferences.setString(
+                  'coach.voiceName',
+                  _voices[_voice.clamp(0, _voices.length - 1)]['name']!,
+                ),
+        )
+        .then(
+          (_) => _voices.isEmpty
+              ? Future.value(true)
+              : preferences.setString(
+                  'coach.voiceLocale',
+                  _voices[_voice.clamp(0, _voices.length - 1)]['locale']!,
+                ),
+        )
+        .then((_) => preferences.setInt('coach.motivation', _motivation))
+        .then((_) => preferences.setBool('coach.water', _water))
+        .then((_) => preferences.setBool('coach.weekly', _weekly))
+        .then((_) => preferences.setBool('coach.haptic', _haptic))
+        .then((_) => preferences.setBool('coach.sound', _sound));
+    if (!mounted) return;
     Navigator.pop(context);
-    showMessage(context, 'Đã lưu cài đặt.');
+    showMessage(context, 'Đã lưu cài đặt Coach.');
+  }
+
+  @override
+  void dispose() {
+    _voiceService.dispose();
+    super.dispose();
   }
 
   @override
@@ -359,23 +499,22 @@ class _CoachSettingsScreenState extends State<CoachSettingsScreen> {
           const SizedBox(height: 18),
           InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => showDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text(
-                  'Giọng ${_voice == 0 ? 'Nam trầm' : 'Nữ nhẹ nhàng'}',
-                ),
-                content: Text(
-                  '${['“Tập trung vào kỹ thuật. Chuẩn bị cho hiệp tiếp theo.”', '“Giữ thẳng lưng, hít thở đều, bạn làm tốt lắm!”', '“Bạn đang tiến bộ mỗi ngày. Cùng hoàn thành hiệp này nhé!”'][_motivation]}\n\nNội dung xem trước; giọng đọc chưa được kết nối.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Đóng'),
-                  ),
-                ],
-              ),
-            ),
+            onTap: () async {
+              if (!_sound) {
+                showMessage(context, 'Hãy bật giọng đọc trước khi nghe thử.');
+                return;
+              }
+              final text = 'Giữ thẳng lưng, bạn sẽ vượt qua hiệp tiếp theo!';
+              await _voiceService.speak(
+                text,
+                voiceName: _voices.isEmpty
+                    ? null
+                    : _voices[_voice.clamp(0, _voices.length - 1)]['name'],
+                locale: _voices.isEmpty
+                    ? 'vi-VN'
+                    : _voices[_voice.clamp(0, _voices.length - 1)]['locale'],
+              );
+            },
             child: GymCard(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -437,6 +576,12 @@ class _CoachSettingsScreenState extends State<CoachSettingsScreen> {
             'Phản hồi xúc giác (Rung)',
             _haptic,
             (v) => setState(() => _haptic = v),
+          ),
+          _notification(
+            Icons.volume_up_outlined,
+            'Đọc phản hồi bằng giọng nói',
+            _sound,
+            (v) => setState(() => _sound = v),
           ),
           const SizedBox(height: 34),
           PrimaryButton(label: 'Lưu thay đổi', onPressed: _save),
@@ -511,7 +656,9 @@ class _NameDialog extends StatefulWidget {
 }
 
 class _NameDialogState extends State<_NameDialog> {
-  final _name = TextEditingController(text: _preferences.name);
+  final _name = TextEditingController(
+    text: ProfileService.instance.profile?['fullName'] as String? ?? '',
+  );
   final _form = GlobalKey<FormState>();
   @override
   void dispose() {

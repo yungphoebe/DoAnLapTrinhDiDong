@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/ai_service.dart';
+import '../services/lm_studio_service.dart';
+import '../services/workout_service.dart';
+import '../services/coach_voice_service.dart';
 import '../ui.dart';
 
 class CoachScreen extends StatefulWidget {
@@ -12,43 +18,279 @@ class CoachScreen extends StatefulWidget {
 class _CoachScreenState extends State<CoachScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  final _aiService = AiService();
+  final _lmStudioService = LMStudioService();
+  final _workoutService = WorkoutService();
+  final _imagePicker = ImagePicker();
+  final _voiceService = CoachVoiceService();
+  var _isSending = false;
+  var _isListening = false;
+  var _speechReady = false;
+  var _soundEnabled = true;
+  String? _voiceName;
+  String? _voiceLocale;
+  String? _lastFailedMessage;
+  String? _conversationId;
+  Map<String, dynamic>? _insights;
   final _messages = <({String text, bool fromUser})>[
-    (
-      text: 'Chào Minh Trí, tôi đã tối ưu giáo án Squat hôm nay dựa trên form lưng của bạn ở buổi trước. Bạn đã sẵn sàng bắt đầu chưa?',
-      fromUser: false,
-    ),
-    (
-      text: 'Lưng tôi vẫn hơi mỏi, có cần giảm tạ xuống không Coach?',
-      fromUser: true,
-    ),
-    (
-      text: 'Có, hãy giảm 10% khối lượng tạ (xuống 80kg) và tập trung giữ thẳng ngực để tránh áp lực lên thắt lưng.',
-      fromUser: false,
-    ),
+    (text: 'Xin chào! Bạn muốn hỏi gì về buổi tập hôm nay?', fromUser: false),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _restoreConversation();
+    _initializeVoice();
+  }
+
+  Future<void> _initializeVoice() async {
+    final preferences = await SharedPreferences.getInstance();
+    _soundEnabled = preferences.getBool('coach.sound') ?? true;
+    _voiceName = preferences.getString('coach.voiceName');
+    _voiceLocale = preferences.getString('coach.voiceLocale');
+    _speechReady = await _voiceService.initializeSpeech(
+      onStatus: (status) {
+        if (mounted && (status == 'notListening' || status == 'done')) {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (message) {
+        if (mounted) {
+          setState(() => _isListening = false);
+          showMessage(context, 'Không nhận được giọng nói: $message');
+        }
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _restoreConversation() async {
+    try {
+      final conversations = await _aiService.conversations();
+      if (!mounted || conversations.isEmpty) return;
+      final conversation = conversations.first;
+      final messages = (conversation['messages'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) => (
+              text: '${item['content'] ?? ''}',
+              fromUser: item['sender'] == 'user',
+            ),
+          );
+      setState(() {
+        _conversationId = '${conversation['id']}';
+        _messages
+          ..clear()
+          ..addAll(messages);
+      });
+    } catch (_) {}
+    try {
+      final insights = await _aiService.insights();
+      if (mounted) setState(() => _insights = insights);
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
+    _voiceService.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  void _send([String? suggestion]) {
+  Future<void> _send([String? suggestion]) async {
     final message = (suggestion ?? _input.text).trim();
-    if (message.isEmpty) return;
-    final reply = switch (message) {
-      'Tạo lịch tập cho tôi' => 'Phản hồi minh họa: Thứ 2: thân trên. Thứ 4: thân dưới. Thứ 6: toàn thân. Đây là lịch mẫu để bạn khám phá giao diện.',
-      'Phân tích tiến độ của tôi' => 'Phản hồi minh họa: Tuần này bạn đã hoàn thành 3/4 buổi tập và duy trì chuỗi 12 ngày. Các chỉ số này là dữ liệu mẫu.',
-      'Gợi ý chế độ dinh dưỡng' => 'Phản hồi minh họa: Nhật ký dinh dưỡng mẫu gồm 3 bữa chính và 1 bữa phụ. Tính năng lập thực đơn cá nhân chưa được kết nối.',
-      _ => 'Phản hồi minh họa: Mình đã ghi nhận câu hỏi của bạn. Hãy thử các gợi ý lịch tập, tiến độ hoặc dinh dưỡng bên dưới để khám phá hội thoại mẫu.',
-    };
+    if (message.isEmpty || _isSending) return;
     setState(() {
       _messages.add((text: message, fromUser: true));
-      _messages.add((text: reply, fromUser: false));
+      _isSending = true;
+      _lastFailedMessage = null;
     });
     _input.clear();
     FocusScope.of(context).unfocus();
+    _scrollToBottom();
+
+    try {
+      final response = await _aiService.chat(
+        message,
+        conversationId: _conversationId,
+      );
+      if (!mounted) return;
+      final messages = (response['messages'] as List? ?? const [])
+          .whereType<Map>()
+          .toList();
+      final reply = messages.isEmpty
+          ? 'Coach chưa có phản hồi.'
+          : '${messages.last['content'] ?? ''}';
+      setState(() {
+        _conversationId = '${response['id']}';
+        _messages.add((text: reply, fromUser: false));
+      });
+      if (_soundEnabled) {
+        await _voiceService.speak(
+          reply,
+          voiceName: _voiceName,
+          locale: _voiceLocale,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _lastFailedMessage = message;
+        _messages.add((
+          text: 'Không thể kết nối LMStudio: $error',
+          fromUser: false,
+        ));
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _toggleListening() async {
+    if (!_speechReady) {
+      showMessage(context, 'Microphone chưa sẵn sàng hoặc quyền bị từ chối.');
+      return;
+    }
+    if (_isListening) {
+      await _voiceService.stopListening();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+    setState(() => _isListening = true);
+    await _voiceService.listen(
+      onResult: (text, _) {
+        if (mounted) {
+          _input.value = TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          );
+        }
+      },
+      onError: (message) {
+        if (mounted) {
+          setState(() => _isListening = false);
+          showMessage(context, 'Không nhận được giọng nói: $message');
+        }
+      },
+    );
+  }
+
+  Future<void> _speak(String text) async {
+    if (!_soundEnabled) return;
+    try {
+      await _voiceService.speak(
+        text,
+        voiceName: _voiceName,
+        locale: _voiceLocale,
+      );
+    } catch (error) {
+      if (mounted) showMessage(context, 'Không thể đọc phản hồi: $error');
+    }
+  }
+
+  Future<void> _proposePlan() async {
+    if (_isSending) return;
+    setState(() => _isSending = true);
+    try {
+      final proposal = await _aiService.planProposal();
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('${proposal['name'] ?? 'Kế hoạch đề xuất'}'),
+          content: Text(
+            'Mục tiêu: ${proposal['goal'] ?? 'Tập luyện'}\n'
+            'Coach chỉ lưu khi bạn xác nhận.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Lưu kế hoạch'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true) {
+        await _workoutService.createPlan(
+          name: '${proposal['name'] ?? 'Kế hoạch Coach'}',
+          goal: proposal['goal'] as String?,
+          level: proposal['level'] as String?,
+          exercises: (proposal['exercises'] as List? ?? const [])
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(),
+        );
+        if (mounted) showMessage(context, 'Đã lưu kế hoạch vào lịch tập.');
+      }
+    } catch (error) {
+      if (mounted) showMessage(context, 'Không thể tạo kế hoạch: $error');
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _analyzeImage() async {
+    if (_isSending) return;
+
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1280,
+    );
+    if (image == null) return;
+
+    setState(() {
+      _messages.add((
+        text: 'Hãy phân tích kỹ thuật trong ảnh này.',
+        fromUser: true,
+      ));
+      _isSending = true;
+    });
+    _scrollToBottom();
+
+    try {
+      final models = await _lmStudioService.getModels();
+      if (models.isEmpty) {
+        throw Exception('Không tìm thấy mô hình AI.');
+      }
+      final reply = await _lmStudioService.chat(
+        modelId: models.first,
+        prompt: 'Phân tích tư thế tập luyện trong ảnh. Nêu điểm đúng, lỗi cần sửa và một lời khuyên an toàn. Trả lời ngắn gọn.',
+        imageBytes: await image.readAsBytes(),
+        imageMimeType: _imageMimeType(image.name),
+      );
+      if (!mounted) return;
+      setState(() => _messages.add((text: reply, fromUser: false)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add((
+          text: 'Không thể phân tích ảnh. Hãy chọn model Vision và kiểm tra LMStudio đang chạy.',
+          fromUser: false,
+        ));
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  String _imageMimeType(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+    return extension == 'png' ? 'image/png' : 'image/jpeg';
+  }
+
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _scroll.hasClients) {
         _scroll.animateTo(
@@ -77,9 +319,24 @@ class _CoachScreenState extends State<CoachScreen> {
             bottomRight: Radius.circular(message.fromUser ? 3 : 15),
           ),
         ),
-        child: Text(
-          message.text,
-          style: const TextStyle(fontSize: 13, height: 1.45),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                message.text,
+                style: const TextStyle(fontSize: 13, height: 1.45),
+              ),
+            ),
+            if (!message.fromUser)
+              IconButton(
+                tooltip: 'Đọc phản hồi',
+                icon: const Icon(Icons.volume_up_outlined, size: 17),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _speak(message.text),
+              ),
+          ],
         ),
       ),
     ),
@@ -144,7 +401,7 @@ class _CoachScreenState extends State<CoachScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Wrap(
+                    Wrap(
                       alignment: WrapAlignment.spaceBetween,
                       spacing: 16,
                       runSpacing: 6,
@@ -159,7 +416,10 @@ class _CoachScreenState extends State<CoachScreen> {
                           ),
                         ),
                         Text(
-                          'Hoàn thành 45%',
+                          _insights?['hasWorkoutData'] == true ||
+                                  _insights?['hasNutritionData'] == true
+                              ? 'Có dữ liệu thực tế'
+                              : 'Chưa có dữ liệu',
                           style: TextStyle(
                             fontSize: 10,
                             color: GymColors.purple,
@@ -169,8 +429,9 @@ class _CoachScreenState extends State<CoachScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'Chân & Đùi Trước',
+                    Text(
+                      _insights?['message'] as String? ??
+                          'Chưa ghi nhận tiến độ mục tiêu',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -178,19 +439,18 @@ class _CoachScreenState extends State<CoachScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      '(Quads & Squat Focus)',
+                      'Trao đổi với AI để tham khảo bài tập.',
                       style: TextStyle(fontSize: 11, color: GymColors.muted),
                     ),
                     const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: const LinearProgressIndicator(
-                        value: .45,
+                        value: 0,
                         minHeight: 4,
                         color: GymColors.purple,
                         backgroundColor: GymColors.border,
-                        semanticsLabel:
-                            'Mục tiêu hôm nay hoàn thành 45 phần trăm',
+                        semanticsLabel: 'Chưa ghi nhận tiến độ mục tiêu',
                       ),
                     ),
                   ],
@@ -205,6 +465,23 @@ class _CoachScreenState extends State<CoachScreen> {
                 ),
               ),
               ..._messages.map(_bubble),
+              if (_isSending)
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              if (_lastFailedMessage != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _send(_lastFailedMessage),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Thử lại'),
+                  ),
+                ),
               Wrap(
                 spacing: 7,
                 runSpacing: 0,
@@ -227,12 +504,19 @@ class _CoachScreenState extends State<CoachScreen> {
                       shape: const StadiumBorder(),
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(horizontal: 1),
-                      onPressed: () => _send(suggestion.value),
+                      onPressed: suggestion.key == 'Tạo lịch tập'
+                          ? _proposePlan
+                          : () => _send(suggestion.value),
                     ),
                 ],
               ),
               const SizedBox(height: 12),
-              const GymCard(
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/nutrition'),
+                icon: const Icon(Icons.restaurant_outlined, size: 18),
+                label: const Text('Mở nhật ký dinh dưỡng'),
+              ),
+              GymCard(
                 padding: EdgeInsets.all(13),
                 child: Row(
                   children: [
@@ -244,15 +528,15 @@ class _CoachScreenState extends State<CoachScreen> {
                         children: [
                           SizedBox.expand(
                             child: CircularProgressIndicator(
-                              value: .78,
+                              value: 0,
                               strokeWidth: 3,
                               color: GymColors.green,
                               backgroundColor: GymColors.border,
-                              semanticsLabel: 'Phục hồi minh họa 78 phần trăm',
+                              semanticsLabel: 'Chưa có dữ liệu phục hồi',
                             ),
                           ),
                           Text(
-                            '78%',
+                            '—',
                             style: TextStyle(
                               color: GymColors.green,
                               fontWeight: FontWeight.w700,
@@ -268,7 +552,9 @@ class _CoachScreenState extends State<CoachScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Chỉ số phục hồi tốt',
+                            _insights?['hasWorkoutData'] == true
+                                ? 'Có dữ liệu tập luyện'
+                                : 'Chưa có dữ liệu phục hồi',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -276,7 +562,9 @@ class _CoachScreenState extends State<CoachScreen> {
                           ),
                           SizedBox(height: 5),
                           Text(
-                            'Khuyên dùng mức tạ thông thường cho hôm nay.',
+                            _insights?['hasWorkoutData'] == true
+                                ? '${_insights!['workoutMinutes']} phút tập hôm nay.'
+                                : 'Chưa đủ dữ liệu để đánh giá phục hồi.',
                             style: TextStyle(
                               fontSize: 11,
                               color: GymColors.muted,
@@ -321,11 +609,16 @@ class _CoachScreenState extends State<CoachScreen> {
                   ),
                   prefixIcon: IconButton(
                     tooltip: 'Nhập giọng nói',
-                    icon: const Icon(Icons.mic_none, size: 19),
-                    onPressed: () => showMessage(
-                      context,
-                      'Nhập giọng nói chưa có trong bản minh họa.',
+                    icon: Icon(
+                      _isListening ? Icons.stop_circle_outlined : Icons.mic_none,
+                      size: 19,
                     ),
+                    onPressed: _isSending ? null : _toggleListening,
+                  ),
+                  suffixIcon: IconButton(
+                    tooltip: 'Phân tích ảnh',
+                    icon: const Icon(Icons.image_outlined, size: 19),
+                    onPressed: _isSending ? null : _analyzeImage,
                   ),
                 ),
               ),
@@ -334,7 +627,7 @@ class _CoachScreenState extends State<CoachScreen> {
             IconButton.filled(
               key: const Key('coach-send'),
               tooltip: 'Gửi tin nhắn',
-              onPressed: _send,
+              onPressed: _isSending ? null : _send,
               style: IconButton.styleFrom(
                 backgroundColor: GymColors.purple,
                 foregroundColor: Colors.white,
