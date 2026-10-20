@@ -5,6 +5,85 @@ import '../models/post.dart';
 import '../services/post_api.dart';
 import '../ui.dart';
 
+enum _FinderProfileType { trainer, partner }
+
+class _FinderProfile {
+  const _FinderProfile({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.city,
+    required this.goals,
+    required this.summary,
+    required this.availability,
+    required this.details,
+    required this.avatarAsset,
+  });
+
+  final String id;
+  final String name;
+  final _FinderProfileType type;
+  final String city;
+  final List<String> goals;
+  final String summary;
+  final String availability;
+  final String details;
+  final String avatarAsset;
+
+  String get typeLabel => type == _FinderProfileType.trainer ? 'PT' : 'Ban tap';
+
+  String get profileTitle =>
+      type == _FinderProfileType.trainer ? 'Ho so PT' : 'Ho so ban tap';
+}
+
+const _finderProfiles = [
+  _FinderProfile(
+    id: 'hai-dang',
+    name: 'HLV. Hai Dang',
+    type: _FinderProfileType.trainer,
+    city: 'Ha Noi',
+    goals: ['Giam can', 'Tang co'],
+    summary: 'Chuyen mon: Dot mo & Tang co',
+    availability: 'Lich ranh: Sang / Toi',
+    details: 'Huan luyen ca nhan theo muc tieu, muc the luc va thoi gian tap cua hoc vien.',
+    avatarAsset: 'assets/images/trainer.jpg',
+  ),
+  _FinderProfile(
+    id: 'minh-anh',
+    name: 'Minh Anh',
+    type: _FinderProfileType.partner,
+    city: 'Ha Noi',
+    goals: ['Giam can', 'Giu dang'],
+    summary: 'Tim ban tap cardio va meal prep',
+    availability: 'Lich ranh: Toi thu 2/4/6',
+    details:
+        'Muon co ban dong hanh tap deu, chia se lich an va nhac nhau check-in.',
+    avatarAsset: 'assets/images/avatar.jpg',
+  ),
+  _FinderProfile(
+    id: 'quoc-bao',
+    name: 'Quoc Bao',
+    type: _FinderProfileType.partner,
+    city: 'Da Nang',
+    goals: ['Tang co'],
+    summary: 'Tim ban tap gym tu do',
+    availability: 'Lich ranh: Chieu / Cuoi tuan',
+    details: 'Dang theo lich tang co 4 buoi moi tuan, uu tien tap cung nguoi co muc tieu gan nhau.',
+    avatarAsset: 'assets/images/community.jpg',
+  ),
+  _FinderProfile(
+    id: 'thu-ha',
+    name: 'PT Thu Ha',
+    type: _FinderProfileType.trainer,
+    city: 'TP. Ho Chi Minh',
+    goals: ['Giu dang', 'Giam can'],
+    summary: 'Chuyen mon: Mobility & Giu dang',
+    availability: 'Lich ranh: Trua / Toi',
+    details: 'Thiet ke giao an nhe nha, tap trung ky thuat dong tac va thoi quen ben vung.',
+    avatarAsset: 'assets/images/trainer.jpg',
+  ),
+];
+
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key, this.controller});
 
@@ -18,9 +97,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
   late final PostController _postController;
   late final bool _ownsController;
   var _tab = 0;
-  var _requested = false;
+  final _requestedProfileIds = <String>{};
   var _city = 'Ha Noi';
   var _goal = 'Giam can';
+
+  List<_FinderProfile> get _visibleProfiles => _finderProfiles
+      .where(
+        (profile) => profile.city == _city && profile.goals.contains(_goal),
+      )
+      .toList();
 
   @override
   void initState() {
@@ -350,7 +435,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  void _profile() => showModalBottomSheet<void>(
+  void _profile(_FinderProfile profile) => showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (context) => SafeArea(
@@ -363,26 +448,37 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
               child: Image.asset(
-                'assets/images/trainer.jpg',
+                profile.avatarAsset,
                 height: 210,
                 width: double.infinity,
                 fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'HLV. Hai Dang',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            Text(
+              profile.profileTitle,
+              style: const TextStyle(
+                fontSize: 13,
+                color: GymColors.purple,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '4.9 sao - 5 nam kinh nghiem',
-              style: TextStyle(color: GymColors.purple),
+            Text(
+              profile.name,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Chuyen mon: Dot mo & Tang co\nLich ranh: Sang / Toi\nHuan luyen ca nhan theo muc tieu va trinh do.',
-              style: TextStyle(height: 1.8),
+            Text(
+              [
+                'Loai ho so: ${profile.typeLabel}',
+                'Thanh pho: ${profile.city}',
+                'Muc tieu: ${profile.goals.join(', ')}',
+                profile.availability,
+                profile.summary,
+                profile.details,
+              ].join('\n'),
+              style: const TextStyle(height: 1.8),
             ),
             const SizedBox(height: 20),
             PrimaryButton(
@@ -407,116 +503,173 @@ class _CommunityScreenState extends State<CommunityScreen> {
     ),
   );
 
-  Widget _trainer() => GymCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _profileCard(_FinderProfile profile) {
+    final requested = _requestedProfileIds.contains(profile.id);
+    return GymCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 29,
+                backgroundImage: AssetImage(profile.avatarAsset),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          profile.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF352042),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            profile.typeLabel,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: GymColors.purple,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      profile.summary,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: GymColors.muted,
+                        height: 1.5,
+                      ),
+                    ),
+                    Text(
+                      profile.city,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: GymColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              _tag(profile.availability),
+              for (final goal in profile.goals) _tag(goal),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _profile(profile),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 41),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                  ),
+                  child: const Text(
+                    'Xem ho so',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => setState(() {
+                    if (requested) {
+                      _requestedProfileIds.remove(profile.id);
+                    } else {
+                      _requestedProfileIds.add(profile.id);
+                    }
+                  }),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 41),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                  ),
+                  child: Text(
+                    requested ? 'Da gui loi moi' : 'Ket noi ngay',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            requested
+                ? 'Loi moi minh hoa - cham lai de huy.'
+                : 'Ket noi minh hoa, chi luu tren thiet bi.',
+            style: const TextStyle(fontSize: 9, color: GymColors.muted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _finder() {
+    final profiles = _visibleProfiles;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              radius: 29,
-              backgroundImage: AssetImage('assets/images/trainer.jpg'),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Wrap(
-                    spacing: 10,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        'HLV. Hai Dang',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        '4.9 sao',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFFFC857),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Chuyen mon: Dot mo & Tang co',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: GymColors.muted,
-                      height: 1.5,
-                    ),
-                  ),
-                  Text(
-                    'Cach 1.2 km - $_city',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: GymColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [_tag('Lich ranh: Sang / Toi'), _tag('Kinh nghiem: 5 nam')],
-        ),
-        const SizedBox(height: 15),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _profile,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 41),
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                ),
-                child: const Text('Xem ho so', style: TextStyle(fontSize: 11)),
-              ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: FilledButton(
-                onPressed: () => setState(() => _requested = !_requested),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 41),
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                ),
-                child: Text(
-                  _requested ? 'Da gui loi moi' : 'Ket noi ngay',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-            ),
-          ],
+        const Text(
+          'Cung nhau tien bo moi ngay',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         Text(
-          _requested
-              ? 'Loi moi minh hoa - cham lai de huy.'
-              : 'Ket noi minh hoa, chi luu tren thiet bi.',
-          style: const TextStyle(fontSize: 9, color: GymColors.muted),
+          'Ket qua tai $_city - $_goal',
+          style: const TextStyle(fontSize: 12, color: GymColors.muted),
         ),
+        const SectionHeading(title: 'Goi y phu hop'),
+        if (profiles.isEmpty)
+          const GymCard(
+            child: Text(
+              'Chua co ho so phu hop voi bo loc nay.',
+              style: TextStyle(fontSize: 13, color: GymColors.muted),
+            ),
+          )
+        else
+          for (final profile in profiles) ...[
+            _profileCard(profile),
+            const SizedBox(height: 12),
+          ],
       ],
-    ),
-  );
+    );
+  }
 
   Widget _composer() => GymCard(
     padding: const EdgeInsets.all(12),
@@ -548,7 +701,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _feed() => AnimatedBuilder(
     animation: _postController,
     builder: (context, _) {
-      if (_postController.loading) {
+      if (_postController.loading && _postController.posts.isEmpty) {
         return const Center(
           child: Padding(
             padding: EdgeInsets.all(28),
@@ -562,14 +715,59 @@ class _CommunityScreenState extends State<CommunityScreen> {
         children: [
           _composer(),
           const SizedBox(height: 12),
+          if (_postController.loading) const LinearProgressIndicator(),
+          if (_postController.error != null) ...[
+            GymCard(
+              child: Column(
+                children: [
+                  Text(_postController.error!, textAlign: TextAlign.center),
+                  TextButton.icon(
+                    key: const Key('feed-retry'),
+                    onPressed:
+                        _postController.loading || _postController.loadingMore
+                        ? null
+                        : _postController.posts.isEmpty
+                        ? _postController.loadPosts
+                        : _retryFeed,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Thử lại'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_postController.posts.isEmpty && _postController.error == null)
+            const GymCard(
+              key: Key('feed-empty'),
+              child: Text(
+                'Chưa có bài viết. Hãy chia sẻ buổi tập đầu tiên của bạn!',
+              ),
+            ),
           for (var i = 0; i < _postController.posts.length; i++) ...[
             _postCard(_postController.posts[i], i == 0),
             const SizedBox(height: 12),
           ],
+          if (_postController.loadingMore)
+            const Center(child: CircularProgressIndicator())
+          else if (_postController.hasMore && _postController.error == null)
+            OutlinedButton(
+              key: const Key('feed-load-more'),
+              onPressed: _postController.loading
+                  ? null
+                  : _postController.loadMore,
+              child: const Text('Tải thêm'),
+            ),
         ],
       );
     },
   );
+
+  Future<void> _retryFeed() => _postController.loadMoreFailed
+      ? _postController.loadMore()
+      : _postController.loadPosts();
+
+  Future<void> _refreshFeed() => _postController.loadPosts();
 
   Widget _postCard(Post post, bool firstPost) {
     final commentCount = 23 + post.comments.length;
@@ -632,13 +830,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ],
             ),
           ),
-          if (post.imageAsset != null)
-            Image.asset(
-              post.imageAsset!,
-              width: double.infinity,
-              height: 204,
-              fit: BoxFit.cover,
-            ),
+          if (post.imageAsset != null) _postImage(post.imageAsset!),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 3),
             child: Text(
@@ -654,10 +846,27 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   key: firstPost
                       ? const Key('community-like')
                       : Key('like-${post.id}'),
-                  onPressed: () => _postController.toggleLike(post.id),
+                  onPressed:
+                      _postController.isLiking(post.id) ||
+                          _postController.loading ||
+                          _postController.loadingMore
+                      ? null
+                      : () async {
+                          final saved = await _postController.toggleLike(
+                            post.id,
+                          );
+                          if (!mounted) return;
+                          if (!saved) {
+                            showMessage(
+                              context,
+                              'Không thể cập nhật lượt thích. Vui lòng thử lại.',
+                            );
+                          }
+                        },
                   icon: Icon(
                     post.liked ? Icons.favorite : Icons.favorite_border,
                     size: 19,
+                    semanticLabel: post.liked ? 'Bỏ thích' : 'Thích',
                   ),
                   label: Text(
                     '${post.likeCount}',
@@ -685,6 +894,37 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _postImage(String source) {
+    Widget fallback(BuildContext context, Object error, StackTrace? stack) =>
+        const SizedBox(
+          height: 204,
+          width: double.infinity,
+          child: Center(
+            child: Icon(
+              Icons.broken_image_outlined,
+              semanticLabel: 'Không thể tải ảnh',
+            ),
+          ),
+        );
+    final uri = Uri.tryParse(source);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return Image.network(
+        source,
+        width: double.infinity,
+        height: 204,
+        fit: BoxFit.cover,
+        errorBuilder: fallback,
+      );
+    }
+    return Image.asset(
+      source,
+      width: double.infinity,
+      height: 204,
+      fit: BoxFit.cover,
+      errorBuilder: fallback,
     );
   }
 
@@ -755,26 +995,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
         ),
       ),
       Expanded(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_tab == 0) _feed(),
-              if (_tab == 1) ...[
-                const Text(
-                  'Cung nhau tien bo moi ngay',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Ket qua minh hoa tai $_city - $_goal',
-                  style: const TextStyle(fontSize: 12, color: GymColors.muted),
-                ),
-              ],
-              const SectionHeading(title: 'Goi y huan luyen vien'),
-              _trainer(),
-            ],
+        child: RefreshIndicator(
+          onRefresh: _tab == 0 ? _refreshFeed : () async {},
+          notificationPredicate: (_) => _tab == 0,
+          child: SingleChildScrollView(
+            key: const Key('community-scroll'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [if (_tab == 0) _feed(), if (_tab == 1) _finder()],
+            ),
           ),
         ),
       ),

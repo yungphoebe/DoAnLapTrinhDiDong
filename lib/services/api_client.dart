@@ -10,14 +10,16 @@ class ApiException implements Exception {
   final String message;
 
   @override
-  String toString() => 'ApiException(statusCode: $statusCode, message: $message)';
+  String toString() =>
+      'ApiException(statusCode: $statusCode, message: $message)';
 }
 
 class ApiClient {
   ApiClient({String? baseUrl, bool isWeb = kIsWeb})
-      : _baseUrl = (baseUrl ?? _defaultBaseUrl(isWeb))
-            .trim()
-            .replaceFirst(RegExp(r'/+$'), '');
+    : _baseUrl = (baseUrl ?? _defaultBaseUrl(isWeb)).trim().replaceFirst(
+        RegExp(r'/+$'),
+        '',
+      );
 
   static final ApiClient instance = ApiClient();
   static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -52,24 +54,29 @@ class ApiClient {
     String path,
     Map<String, dynamic> body, {
     bool includeAuth = false,
-  }) async =>
-      http.post(
-        uri(path),
-        headers: headers(includeAuth: includeAuth),
-        body: jsonEncode(body),
-      );
+  }) async => http.post(
+    uri(path),
+    headers: headers(includeAuth: includeAuth),
+    body: jsonEncode(body),
+  );
 
   Future<http.Response> put(
     String path,
     Map<String, dynamic> body, {
     bool includeAuth = false,
-  }) async =>
-      http.put(
-        uri(path),
-        headers: headers(includeAuth: includeAuth),
-        body: jsonEncode(body),
-      );
+  }) async => http.put(
+    uri(path),
+    headers: headers(includeAuth: includeAuth),
+    body: jsonEncode(body),
+  );
 
-  Future<http.Response> delete(String path, {bool includeAuth = false}) async =>
-      http.delete(uri(path), headers: headers(includeAuth: includeAuth));
+  Future<http.Response> delete(
+    String path, {
+    bool includeAuth = false,
+    Map<String, dynamic>? body,
+  }) async => http.delete(
+    uri(path),
+    headers: headers(includeAuth: includeAuth),
+    body: body == null ? null : jsonEncode(body),
+  );
 }

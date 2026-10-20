@@ -20,7 +20,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (builder.Environment.IsEnvironment("Testing"))
     {
-        options.UseInMemoryDatabase("aigym-tests");
+        options.UseInMemoryDatabase(builder.Configuration["Testing:DatabaseName"] ?? "aigym-tests");
     }
     else
     {

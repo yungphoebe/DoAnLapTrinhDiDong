@@ -296,10 +296,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                               ),
                               InkWell(
-                                onTap: () => showMessage(
-                                  context,
-                                  'Điều khoản và chính sách sẽ được bổ sung khi kết nối dịch vụ.',
-                                ),
+                                onTap: () =>
+                                    Navigator.pushNamed(context, '/terms'),
                                 child: const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 14),
                                   child: Text(

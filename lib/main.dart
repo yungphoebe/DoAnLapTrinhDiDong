@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'screens/auth.dart';
 import 'screens/pose_camera.dart';
@@ -27,7 +26,7 @@ Future<void> main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(MainApp(initialRoute: _initialRoute()));
+  runApp(NotificationRuntime(child: MainApp(initialRoute: _initialRoute())));
 }
 
 String _initialRoute() {
@@ -35,7 +34,7 @@ String _initialRoute() {
   if (fragment.startsWith('/reset-password')) {
     return fragment;
   }
-  return ApiClient.instance.token != null ? '/home' : '/login';
+  return NotificationApi().owner != null ? '/home' : '/login';
 }
 
 class MainApp extends StatelessWidget {
@@ -44,6 +43,7 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: appNavigatorKey,
     title: 'AI GYM',
     debugShowCheckedModeBanner: false,
     theme: gymTheme(),
