@@ -222,6 +222,103 @@ public sealed class AuthAndPostsApiTests : IClassFixture<ApiFactory>
         Assert.Empty(_factory.EmailSender.Messages);
     }
 
+    [Fact]
+    public async Task Feed_PaginatesDatabasePosts_AndPreservesFields()
+    {
+        var client = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/posts/feed")).StatusCode);
+        var auth = await RegisterAsync(client, $"feed-{Guid.NewGuid():N}@example.com", "Feed Author");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
+        var createdIds = new List<int>();
+        for (var i = 0; i < 3; i++)
+        {
+            var response = await client.PostAsJsonAsync("/api/posts", new
+            {
+                content = $"Nội dung {i}", imageAsset = "https://example.com/post.jpg", tag = "Gym"
+            });
+            response.EnsureSuccessStatusCode();
+            createdIds.Add((await response.Content.ReadFromJsonAsync<PostResponse>())!.Id);
+        }
+
+        var first = await client.GetFromJsonAsync<JsonElement>("/api/posts/feed?page=1&pageSize=2");
+        var items = first.GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+        Assert.True(first.GetProperty("hasMore").GetBoolean());
+        Assert.Equal(createdIds[2], items[0].GetProperty("id").GetInt32());
+        Assert.Equal("Feed Author", items[0].GetProperty("authorName").GetString());
+        Assert.Equal("Nội dung 2", items[0].GetProperty("content").GetString());
+        Assert.Equal("https://example.com/post.jpg", items[0].GetProperty("imageAsset").GetString());
+        var second = await client.GetFromJsonAsync<JsonElement>("/api/posts/feed?page=2&pageSize=2");
+        Assert.Equal(createdIds[0], second.GetProperty("items")[0].GetProperty("id").GetInt32());
+        var empty = await client.GetFromJsonAsync<JsonElement>("/api/posts/feed?page=10000&pageSize=2");
+        Assert.Equal(0, empty.GetProperty("items").GetArrayLength());
+        Assert.False(empty.GetProperty("hasMore").GetBoolean());
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/posts/feed?page=0")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/posts/feed?pageSize=101")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Likes_AreIdempotent_PerAccount_AndSurviveNewSessions()
+    {
+        using var first = _factory.CreateClient();
+        using var second = _factory.CreateClient();
+        var firstEmail = $"like-a-{Guid.NewGuid():N}@example.com";
+        var secondEmail = $"like-b-{Guid.NewGuid():N}@example.com";
+        var a = await RegisterAsync(first, firstEmail, "Like A");
+        var b = await RegisterAsync(second, secondEmail, "Like B");
+        first.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", a.Token);
+        second.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", b.Token);
+        var created = await first.PostAsJsonAsync("/api/posts", new { content = "Persistent likes" });
+        var post = (await created.Content.ReadFromJsonAsync<PostResponse>())!;
+        var path = $"/api/posts/{post.Id}/like";
+
+        async Task AssertLike(HttpClient client, bool liked, int count)
+        {
+            var response = await client.PutAsJsonAsync(path, new { liked });
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(liked, result.GetProperty("liked").GetBoolean());
+            Assert.Equal(count, result.GetProperty("likeCount").GetInt32());
+        }
+
+        await AssertLike(first, true, 1);
+        await AssertLike(first, true, 1);
+        var bFeed = (await second.GetFromJsonAsync<List<PostResponse>>("/api/posts"))!.Single(p => p.Id == post.Id);
+        Assert.False(bFeed.Liked);
+        Assert.Equal(1, bFeed.LikeCount);
+        await AssertLike(second, true, 2);
+        await AssertLike(first, false, 1);
+        await AssertLike(first, false, 1);
+
+        // New clients and new JWTs simulate closing and reopening the app.
+        using var reopenedA = _factory.CreateClient();
+        using var reopenedB = _factory.CreateClient();
+        var newA = await LoginAsync(reopenedA, firstEmail, "123123123Az!");
+        var newB = await LoginAsync(reopenedB, secondEmail, "123123123Az!");
+        reopenedA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", newA.Token);
+        reopenedB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", newB.Token);
+        foreach (var (client, expectedLiked) in new[] { (reopenedA, false), (reopenedB, true) })
+        {
+            var feed = await client.GetFromJsonAsync<JsonElement>("/api/posts/feed?pageSize=100");
+            var saved = feed.GetProperty("items").EnumerateArray().Single(p => p.GetProperty("id").GetInt32() == post.Id);
+            Assert.Equal(expectedLiked, saved.GetProperty("liked").GetBoolean());
+            Assert.Equal(1, saved.GetProperty("likeCount").GetInt32());
+        }
+        await AssertLike(reopenedB, false, 0);
+        await AssertLike(reopenedB, false, 0);
+    }
+
+    [Fact]
+    public async Task Likes_ValidateAuthPostAndExplicitState()
+    {
+        using var client = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PutAsJsonAsync("/api/posts/1/like", new { liked = true })).StatusCode);
+        var auth = await LoginAsync(client, DatabaseSeeder.AdminEmail, DatabaseSeeder.AdminPassword);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsJsonAsync("/api/posts/2147483647/like", new { liked = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/api/posts/1/like", new { })).StatusCode);
+    }
+
     private static async Task<AuthResponse> RegisterAsync(HttpClient client, string email, string fullName)
     {
         var response = await client.PostAsJsonAsync(
@@ -270,12 +367,14 @@ public sealed class AuthAndPostsApiTests : IClassFixture<ApiFactory>
 
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
+    private readonly string _databaseName = $"aigym-tests-{Guid.NewGuid():N}";
     private readonly string _databaseName = $"aigym-tests-{Guid.NewGuid()}";
     public FakeEmailSender EmailSender { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("Testing:DatabaseName", _databaseName);
         builder.ConfigureTestServices(services =>
         {
             services.AddDbContext<ApplicationDbContext>(options => options.UseInMemoryDatabase(_databaseName));

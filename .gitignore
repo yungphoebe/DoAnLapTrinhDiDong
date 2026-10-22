@@ -43,6 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
+/android/.kotlin/
 
 # Widget Preview related
 .widget_preview/
@@ -50,3 +52,6 @@ app.*.map.json
 # .NET build output
 **/bin/
 **/obj/
+# Local build outputs and private notification keys.
+.artifacts/
+backend/AiGym.Api/.local/

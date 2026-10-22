@@ -20,7 +20,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (builder.Environment.IsEnvironment("Testing"))
     {
-        options.UseInMemoryDatabase("aigym-tests");
+        options.UseInMemoryDatabase(builder.Configuration["Testing:DatabaseName"] ?? "aigym-tests");
     }
     else
     {
@@ -73,6 +73,9 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<NotificationScheduler>();
+builder.Services.AddSingleton<NotificationPush>();
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<NotificationWorker>();
 builder.Services.AddHttpClient<ILmStudioService, LmStudioService>((serviceProvider, client) =>
 {
     var options = serviceProvider

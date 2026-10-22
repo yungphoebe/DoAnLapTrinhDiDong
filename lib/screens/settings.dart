@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ui.dart';
+import '../notifications/controller.dart';
+import '../services/auth_service.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../services/profile_service.dart';
@@ -127,6 +129,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+          ),
+          _section('TÀI KHOẢN'),
+          _row(
+            Icons.lock_outline,
+            'Đổi mật khẩu',
+            onTap: () => Navigator.pushNamed(context, '/forgot'),
+          ),
+          _row(
+            Icons.language,
+            'Ngôn ngữ',
+            value: 'Tiếng Việt',
+            onTap: () =>
+                showMessage(context, 'Bản giao diện hiện hỗ trợ Tiếng Việt.'),
+          ),
+          _row(
+            Icons.balance_outlined,
+            'Đơn vị đo lường',
+            value: 'Metric (kg/cm)',
+            onTap: () =>
+                showMessage(context, 'Chỉ số trong bản mẫu sử dụng kg và cm.'),
+          ),
+          _section('AI COACH & HUẤN LUYỆN'),
+          _row(
+            Icons.psychology_outlined,
+            'Cài đặt AI Coach',
+            value:
+                'Giọng: ${_preferences.voice == 0 ? 'Nam trầm' : 'Nữ nhẹ nhàng'}',
+            onTap: () async {
+              await Navigator.pushNamed(context, '/coach-settings');
+              if (mounted) setState(() {});
+            },
+          ),
+          _row(
+            Icons.emoji_events_outlined,
+            'Nhắc nhở tập luyện',
+            trailing: AnimatedBuilder(
+              animation: NotificationController.instance,
+              builder: (context, _) {
+                final c = NotificationController.instance;
+                return _switch(c.localSettings.workoutEnabled, (v) async {
+                  if (c.saving) return;
+                  final saved = await c.save(
+                    c.localSettings.copyWith(workoutEnabled: v),
+                  );
+                  if (context.mounted) {
+                    showMessage(
+                      context,
+                      saved
+                          ? 'Đã lưu nhắc tập.'
+                          : c.error ?? 'Chưa lưu được cài đặt.',
+                    );
+                  }
+                });
+              },
+            ),
+          ),
+          _row(
+            Icons.notifications_outlined,
+            'Lịch nhắc & thông báo',
+            onTap: () => Navigator.pushNamed(context, '/reminder-settings'),
+          ),
+          _row(
+            Icons.monitor_heart_outlined,
+            'Đồng bộ sức khỏe',
+            value: 'Apple Health',
+            onTap: () => showMessage(
+              context,
+              'Apple Health chưa được kết nối. Các chỉ số hiện là dữ liệu mẫu.',
             if (ProfileService.instance.error != null)
               TextButton(
                 onPressed: ProfileService.instance.load,

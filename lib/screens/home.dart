@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../notifications/controller.dart';
+
 import '../services/profile_service.dart';
 import '../models/workout.dart';
 import '../ui.dart';

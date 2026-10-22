@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
+import '../notifications/runtime.dart';
 import 'profile_service.dart';
 
 class AuthResponse {
@@ -93,10 +94,14 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    try {
+      await NotificationRuntime.beforeLogout?.call();
+    } catch (_) {}
     ApiClient.instance.token = null;
     ProfileService.instance.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    NotificationRuntime.sessionChanged?.call();
   }
 
   Future<void> saveSession(AuthResponse auth) async {
@@ -104,6 +109,7 @@ class AuthService {
     ApiClient.instance.token = auth.token;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', auth.token);
+    NotificationRuntime.sessionChanged?.call();
     await ProfileService.instance.load();
   }
 
