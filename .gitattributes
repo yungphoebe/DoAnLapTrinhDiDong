@@ -1,0 +1,2 @@
+# Keep CI shell scripts runnable after a checkout from a Windows-authored repo.
+tool/ci/*.sh text eol=lf

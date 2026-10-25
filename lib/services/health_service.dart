@@ -1,4 +1,5 @@
 import 'package:health/health.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/health_workout.dart';
 
@@ -10,16 +11,29 @@ abstract interface class HealthPlatformClient {
 }
 
 class HealthService {
-  HealthService({HealthPlatformClient? client})
-      : _client = client ?? HealthPlatformClientAdapter();
+  HealthService({
+    HealthPlatformClient? client,
+    bool disableIosHealth = const bool.fromEnvironment('IOS_DISABLE_HEALTHKIT'),
+  }) : _client = client ?? HealthPlatformClientAdapter(),
+       _iosHealthDisabled =
+           disableIosHealth &&
+           !kIsWeb &&
+           defaultTargetPlatform == TargetPlatform.iOS;
 
   final HealthPlatformClient _client;
+  final bool _iosHealthDisabled;
+  static const _sideloadStatus = HealthIntegrationStatus(
+    HealthIntegrationState.unsupported,
+    message:
+        'Bản cài thử này đã tắt đồng bộ Apple Health trong cấu hình build.',
+  );
   HealthIntegrationStatus status = const HealthIntegrationStatus(
     HealthIntegrationState.permissionRequired,
   );
   final Set<String> _knownWorkoutIds = <String>{};
 
   Future<HealthIntegrationStatus> initialize() async {
+    if (_iosHealthDisabled) return status = _sideloadStatus;
     try {
       if (!await _client.isAvailable()) {
         return status = const HealthIntegrationStatus(
@@ -39,6 +53,7 @@ class HealthService {
   }
 
   Future<HealthIntegrationStatus> requestPermission() async {
+    if (_iosHealthDisabled) return status = _sideloadStatus;
     try {
       if (!await _client.isAvailable()) {
         return status = const HealthIntegrationStatus(
@@ -70,8 +85,7 @@ class HealthService {
         unique[workout.deduplicationKey] = workout;
         _knownWorkoutIds.add(workout.deduplicationKey);
       }
-      return unique.values.toList()
-        ..sort((a, b) => a.start.compareTo(b.start));
+      return unique.values.toList()..sort((a, b) => a.start.compareTo(b.start));
     } catch (error) {
       status = HealthIntegrationStatus(
         HealthIntegrationState.error,
@@ -128,9 +142,9 @@ class HealthPlatformClientAdapter implements HealthPlatformClient {
 
   @override
   Future<bool> requestAuthorization() => _health.requestAuthorization(
-        _types,
-        permissions: const [HealthDataAccess.READ_WRITE],
-      );
+    _types,
+    permissions: const [HealthDataAccess.READ_WRITE],
+  );
 
   @override
   Future<List<HealthWorkout>> readWorkouts(DateTime start, DateTime end) async {
@@ -144,13 +158,13 @@ class HealthPlatformClientAdapter implements HealthPlatformClient {
 
   @override
   Future<bool> writeWorkout(HealthWorkout workout) => _health.writeWorkoutData(
-        activityType: _activityType(workout.activity),
-        start: workout.start,
-        end: workout.end,
-        totalEnergyBurned: workout.energyKilocalories?.round(),
-        totalDistance: workout.distanceMeters?.round(),
-        title: workout.activity,
-      );
+    activityType: _activityType(workout.activity),
+    start: workout.start,
+    end: workout.end,
+    totalEnergyBurned: workout.energyKilocalories?.round(),
+    totalDistance: workout.distanceMeters?.round(),
+    title: workout.activity,
+  );
 
   HealthWorkout _fromPoint(HealthDataPoint point) {
     final summary = point.workoutSummary;

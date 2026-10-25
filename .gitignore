@@ -55,3 +55,15 @@ app.*.map.json
 # Local build outputs and private notification keys.
 .artifacts/
 backend/AiGym.Api/.local/
+
+# Local credentials and signing material (never required by the unsigned CI).
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.mobileprovision
+*.ipa
+*.key
+**/secrets.json
+__pycache__/

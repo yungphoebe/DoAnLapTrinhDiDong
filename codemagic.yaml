@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://codemagic.io/codemagic-schema.json
+workflows:
+  ios-unsigned-ipa:
+    name: ios-unsigned-ipa
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      groups:
+        - ios_sideload
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Check tools and iPhone backend URL
+        script: |
+          set -euo pipefail
+          flutter --version
+          xcodebuild -version
+          pod --version
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          url = urlparse(os.environ.get('API_BASE_URL', ''))
+          if url.scheme not in ('http', 'https') or not url.hostname:
+              raise SystemExit('Set API_BASE_URL in Codemagic to the backend URL reachable from your iPhone.')
+          if url.hostname in ('localhost', '127.0.0.1', '0.0.0.0', '10.0.2.2', '::1'):
+              raise SystemExit('API_BASE_URL must use your PC LAN IP or a reachable HTTPS server, not loopback/emulator IP.')
+          if url.username or url.password or url.query or url.fragment:
+              raise SystemExit('API_BASE_URL must not contain credentials, query strings or fragments.')
+          PY
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Prepare free-account build and install pods
+        script: |
+          set -euo pipefail
+          # Change only this disposable CI checkout; keep source HealthKit support.
+          python3 - <<'PY'
+          import os
+          import plistlib
+          from pathlib import Path
+          fallback = os.environ.get('IOS_DISABLE_HEALTHKIT', 'false')
+          if fallback not in ('true', 'false'):
+              raise SystemExit('IOS_DISABLE_HEALTHKIT must be true or false.')
+          if fallback == 'true':
+              with Path('ios/Runner/Runner.entitlements').open('wb') as file:
+                  plistlib.dump({}, file)
+              print('Optional fallback: Apple Health disabled for this CI build.')
+          PY
+          flutter build ios --release --no-codesign --config-only \
+            --dart-define="IOS_DISABLE_HEALTHKIT=${IOS_DISABLE_HEALTHKIT:-false}" \
+            --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="LM_STUDIO_URL=${LM_STUDIO_URL:-http://127.0.0.1:1234/v1}"
+          cd ios
+          pod install
+      - name: Build unsigned iOS release for physical devices
+        script: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign \
+            --dart-define="IOS_DISABLE_HEALTHKIT=${IOS_DISABLE_HEALTHKIT:-false}" \
+            --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="LM_STUDIO_URL=${LM_STUDIO_URL:-http://127.0.0.1:1234/v1}"
+      - name: Package and validate unsigned IPA
+        script: bash tool/ci/package_unsigned_ipa.sh
+    artifacts:
+      - build/ios/ipa/FlutterApp-unsigned.ipa
+      - build/ios/ipa/FlutterApp-unsigned.ipa.sha256
+      - /tmp/xcodebuild_logs/*.log

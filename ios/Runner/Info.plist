@@ -14,6 +14,8 @@
 	<string>Ứng dụng cần dữ liệu chuyển động để đếm bước chân trong buổi đi bộ hoặc chạy.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ứng dụng cần microphone để nhập câu hỏi cho AI Coach bằng giọng nói.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ứng dụng cần nhận dạng giọng nói để chuyển câu hỏi cho AI Coach thành văn bản.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Ứng dụng cần đọc bài tập để đồng bộ lịch sử luyện tập.</string>
 	<key>NSHealthUpdateUsageDescription</key>
