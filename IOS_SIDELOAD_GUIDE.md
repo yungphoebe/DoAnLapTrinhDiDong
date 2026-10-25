@@ -79,6 +79,8 @@ Không có tính năng đã xác nhận trong source hiện tại bắt buộc m
 
 ## 3. Chuẩn bị backend cho iPhone
 
+Cập nhật model ngày 26/10/2026: Flutter và backend Development mặc định dùng `qwen/qwen3.5-9b`, đúng API Model Identifier đang nạp trong LM Studio. Workflow truyền biến `LM_STUDIO_VISION_MODEL` từ group `ios_sideload` vào cả config-only và release build; có thể đặt biến này bằng model ID khác khi đổi model. Đổi model hoặc URL trong build config cần build/cài lại IPA; backend cần khởi động lại để đọc cấu hình mới. Test vision lần kiểm tra cập nhật này bị Dart VM dừng vì hết bộ nhớ trên Windows, chưa xác nhận inference với model thật.
+
 Địa chỉ `localhost` trên iPhone là chính iPhone; `10.0.2.2` chỉ là địa chỉ đặc biệt của Android Emulator. Không dùng hai địa chỉ này cho IPA.
 
 1. Kết nối iPhone và Windows cùng Wi-Fi, tránh guest Wi-Fi cô lập thiết bị.

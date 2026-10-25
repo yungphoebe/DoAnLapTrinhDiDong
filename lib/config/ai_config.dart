@@ -6,6 +6,6 @@ class AIConfig {
 
   static const String visionModelId = String.fromEnvironment(
     'LM_STUDIO_VISION_MODEL',
-    defaultValue: 'qwen/qwen3-vl-2b',
+    defaultValue: 'qwen/qwen3.5-9b',
   );
 }
