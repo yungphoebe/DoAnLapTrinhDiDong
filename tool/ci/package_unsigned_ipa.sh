@@ -15,7 +15,8 @@ if [[ -z "$app_path" || ! -f "$app_path/Info.plist" || ! -s "$app_path/Runner" ]
   exit 1
 fi
 /usr/bin/plutil -lint "$app_path/Info.plist"
-/usr/bin/lipo -verify_arch arm64 "$app_path/Runner"
+# -verify_arch consumes every following argument as an architecture name.
+/usr/bin/lipo "$app_path/Runner" -verify_arch arm64
 if [[ ! -x "$app_path/Runner" ]]; then
   echo 'Runner executable has lost its execute permissions.' >&2
   exit 1
