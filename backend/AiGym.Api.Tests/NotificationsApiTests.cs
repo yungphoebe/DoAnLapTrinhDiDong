@@ -29,8 +29,10 @@ public sealed class NotificationsApiTests : IClassFixture<ApiFactory>
         settings.EnsureSuccessStatusCode();
         var initial = await settings.Content.ReadFromJsonAsync<JsonElement>();
         Assert.False(initial.GetProperty("workoutEnabled").GetBoolean());
+        Assert.False(initial.GetProperty("runningEnabled").GetBoolean());
         var saved = await client.PutAsJsonAsync("/api/notifications/settings", new {
             workoutEnabled = true, workoutTime = "18:00", workoutDays = new[] {1, 3, 5},
+            runningEnabled = true, runningTime = "06:30", runningDays = new[] {2, 4, 6},
             waterEnabled = true, waterStart = "09:00", waterEnd = "21:00", waterIntervalMinutes = 120,
             weeklyEnabled = true, weeklyDay = 7, weeklyTime = "20:00", timeZone = "Asia/Bangkok"
         });
@@ -38,6 +40,8 @@ public sealed class NotificationsApiTests : IClassFixture<ApiFactory>
         var loaded = await client.GetFromJsonAsync<JsonElement>("/api/notifications/settings");
         Assert.True(loaded.GetProperty("waterEnabled").GetBoolean());
         Assert.Equal("18:00", loaded.GetProperty("workoutTime").GetString());
+        Assert.True(loaded.GetProperty("runningEnabled").GetBoolean());
+        Assert.Equal("06:30", loaded.GetProperty("runningTime").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/api/notifications/settings", new { timeZone = "invalid" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/notifications?page=0")).StatusCode);
         var inbox = await client.GetFromJsonAsync<JsonElement>("/api/notifications");

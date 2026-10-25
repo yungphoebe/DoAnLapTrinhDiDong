@@ -64,6 +64,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: ListTile(
                   leading: Icon(switch (n.kind) {
                     'workout' => Icons.fitness_center,
+                    'running' => Icons.directions_run,
                     'water' => Icons.water_drop_outlined,
                     _ => Icons.insert_chart_outlined,
                   }, color: n.read ? GymColors.muted : GymColors.purple),
@@ -111,6 +112,7 @@ class NotificationDestinationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = switch (kind) {
       'workout' => 'Lịch tập',
+      'running' => 'Lịch chạy bộ',
       'water' => 'Uống nước',
       _ => 'Báo cáo tuần',
     };
@@ -128,6 +130,7 @@ class NotificationDestinationScreen extends StatelessWidget {
           GymCard(
             child: Text(switch (kind) {
               'workout' => 'Bạn chưa có lịch tập cá nhân được lưu. Các bài tập minh họa hiện có nằm ở Trang chủ.',
+              'running' => 'Đến giờ vận động. Mở Đi bộ & chạy bộ để bắt đầu theo dõi quãng đường GPS và số bước khi thiết bị hỗ trợ.',
               'water' => 'Dành một chút thời gian để uống nước. Bạn có thể điều chỉnh giờ nhắc bên dưới.',
               _ =>
                 'Tuần ${monday.day}/${monday.month} – ${monday.add(const Duration(days: 6)).day}/${monday.add(const Duration(days: 6)).month}\nChưa có dữ liệu tập luyện cho tuần này.',
@@ -140,6 +143,7 @@ class NotificationDestinationScreen extends StatelessWidget {
               final s = NotificationController.instance.settings;
               return Text(switch (kind) {
                 'workout' => 'Giờ nhắc: ${s.workoutTime}',
+                'running' => 'Giờ nhắc: ${s.runningTime}',
                 'water' =>
                   'Lịch nhắc: ${s.waterStart}–${s.waterEnd}, mỗi ${s.waterIntervalMinutes} phút',
                 _ => 'Giờ nhắc báo cáo: ${s.weeklyTime}',
@@ -158,6 +162,15 @@ class NotificationDestinationScreen extends StatelessWidget {
                 (_) => false,
               ),
               child: const Text('Mở Trang chủ'),
+            ),
+          if (kind == 'running')
+            TextButton(
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/activity',
+                (_) => false,
+              ),
+              child: const Text('Mở Đi bộ & chạy bộ'),
             ),
         ],
       ),

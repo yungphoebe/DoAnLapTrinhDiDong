@@ -9,6 +9,7 @@ const edges = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[
 let stream, worker, session, pending, saveTimer, animation, lastFrame = -1, lastTimestamp = 0;
 let busy = false, ready = false, running = false, opening = false, disposed = false, saved = false;
 let generation = 0, speechAt = -Infinity, spoken = '', previousReps = 0;
+let targetSets = 0, targetReps = 0, restSeconds = 0, currentSet = 0, restUntil = 0;
 let cancelInitialization;
 
 window.addEventListener('message', event => {
@@ -18,12 +19,30 @@ window.addEventListener('message', event => {
   if (message.type !== 'aigym:configure') return;
   const exercise = message.exercise;
   if (!['squat', 'pushup', 'jumpingJack', 'shoulderPress', 'bicepsCurl'].includes(exercise)) return;
+  if (message.targetSets !== undefined &&
+      (!Number.isInteger(message.targetSets) || message.targetSets < 1 || message.targetSets > 100 ||
+       !Number.isInteger(message.targetReps) || message.targetReps < 1 || message.targetReps > 1000 ||
+       !Number.isInteger(message.restSeconds) || message.restSeconds < 0 || message.restSeconds > 3600)) return;
+  engine.setExercise(exercise);
   $('exercise').value = exercise;
   $('exercise').disabled = true;
+  targetSets = message.targetSets ?? 0;
+  targetReps = message.targetReps ?? 0;
+  restSeconds = message.restSeconds ?? 0;
+  $('target').hidden = !targetSets;
+  $('target').textContent = targetSets
+    ? `Mục tiêu lịch tập: ${targetSets} hiệp × ${targetReps} lần · nghỉ ${restSeconds} giây.`
+    : '';
+  updateSetProgress(0);
   status(`Bài đang chọn: ${names[exercise]}. Bấm Mở camera để bắt đầu.`);
 });
 
 function status(text) { $('status').textContent = text; }
+function updateSetProgress(reps) {
+  $('set-progress').textContent = targetSets
+    ? `Hiệp ${currentSet}/${targetSets} · ${Math.min(reps % targetReps, targetReps)}/${targetReps} lần`
+    : '';
+}
 function clearOverlay() { context.clearRect(0,0,canvas.width,canvas.height); }
 function controls() {
   $('start').disabled = opening || disposed || !!pending || running;
@@ -72,6 +91,56 @@ function dispose() {
   clearInterval(clockTimer);
   if ('speechSynthesis' in window) speechSynthesis.removeEventListener('voiceschanged',voiceSupport);
 }
+async function requestCameraStream(version) {
+  let requestExpired = false;
+  let timeoutId;
+  const request = navigator.mediaDevices.getUserMedia({
+    video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},
+    audio:false
+  }).then(next => {
+    if (requestExpired || disposed || version !== generation) {
+      next.getTracks().forEach(track => track.stop());
+      return null;
+    }
+    return next;
+  });
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      requestExpired = true;
+      reject(new Error('Quá thời gian chờ quyền camera.'));
+    }, 15000);
+  });
+  try {
+    const next = await Promise.race([request, timeout]);
+    if (!next) throw new Error('Yêu cầu camera đã bị hủy.');
+    return next;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+function waitForVideo() {
+  if (video.videoWidth > 0 && video.videoHeight > 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    let timeoutId;
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      video.removeEventListener('loadedmetadata', check);
+      video.removeEventListener('resize', check);
+    };
+    const check = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        cleanup();
+        resolve();
+      }
+    };
+    video.addEventListener('loadedmetadata', check);
+    video.addEventListener('resize', check);
+    timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error('Camera không gửi hình ảnh.'));
+    }, 10000);
+  });
+}
 function draw(landmarks, width, height, state) {
   if (canvas.width !== width || canvas.height !== height) { canvas.width=width;canvas.height=height; }
   clearOverlay();
@@ -90,6 +159,19 @@ function draw(landmarks, width, height, state) {
 async function frame(now) {
   if (disposed || !ready) return;
   animation=requestAnimationFrame(frame);
+  if (restUntil > now) {
+    $('feedback').textContent = `Đang nghỉ ${Math.ceil((restUntil-now)/1000)} giây trước hiệp tiếp theo.`;
+    updateSetProgress(0);
+    return;
+  }
+  if (restUntil !== 0) {
+    restUntil = 0;
+    engine.resetMotion();
+    if (running) {
+      session?.resume(now);
+      status('Hết giờ nghỉ. Tiếp tục đúng bài đã chọn.');
+    }
+  }
   if (!running || busy || now-lastTimestamp<80 || video.readyState<2 || video.currentTime===lastFrame) return;
   busy=true; lastTimestamp=now;lastFrame=video.currentTime;
   const version=generation;
@@ -106,9 +188,9 @@ async function open() {
   const version=++generation;
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera cần localhost hoặc HTTPS.');
-    const next=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},audio:false});
+    const next=await requestCameraStream(version);
     if (disposed || version!==generation) {next.getTracks().forEach(t=>t.stop());return;}
-    stream=next;video.srcObject=stream;await video.play();
+    stream=next;video.srcObject=stream;await video.play();await waitForVideo();
     if (disposed || version!==generation) return;
     for(const track of stream.getVideoTracks()) track.onended=()=>{releaseCamera();status('Camera bị ngắt. Bấm Mở camera để kết nối lại.');};
     $('video').parentElement.style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;
@@ -139,6 +221,7 @@ async function open() {
       $('live-reps').textContent=result.reps;
       $('live-correct').textContent=result.correctReps;
       $('live-incorrect').textContent=result.incorrectReps;
+      updateSetProgress(result.reps);
       const feedback=result.feedback.join(' ') || (result.tracking
         ? 'Tiếp tục động tác đủ biên độ.'
         : $('exercise').value === 'shoulderPress'
@@ -148,19 +231,42 @@ async function open() {
       $('feedback').className=state;
       if(result.feedbackCodes.length || !result.tracking) speak(feedback);
       else if(result.reps>previousReps) speak(`${result.reps} lần.`,false);
+      if(targetSets && result.reps >= targetReps * (currentSet + 1)) {
+        currentSet = Math.min(targetSets, currentSet + 1);
+        engine.resetMotion();
+        updateSetProgress(result.reps);
+        if(currentSet >= targetSets) {
+          running = false;
+          session?.pause(now);
+          status('Đã đạt mục tiêu số lần của bài tập. Bấm Kết thúc & lưu để ghi kết quả.');
+          controls();
+          window.__aigymPoseReady = true;
+        } else if(restSeconds > 0) {
+          session?.pause(now);
+          restUntil = now + restSeconds * 1000;
+        }
+      }
       previousReps=result.reps;
     };
     ready=true; lastFrame=-1; resume();animation=requestAnimationFrame(frame);
   } catch(error) {
     if(!disposed && version===generation) {
-      releaseCamera(); status(error.name==='NotAllowedError' ? 'Chưa được cấp quyền camera. Cho phép camera rồi thử lại.' : `Không mở được camera: ${error.message}`);
+      releaseCamera(); status(error.name==='NotAllowedError'
+        ? 'Chrome chưa được cấp quyền camera. Bấm biểu tượng quyền cạnh địa chỉ trang, đặt Camera thành Cho phép, rồi bấm Mở camera để thử lại.'
+        : error.message==='Quá thời gian chờ quyền camera.'
+          ? 'Chrome chưa phản hồi yêu cầu camera. Kiểm tra quyền camera cạnh địa chỉ trang, rồi bấm Mở camera để thử lại.'
+          : error.message==='Camera không gửi hình ảnh.'
+            ? 'Camera đã được kết nối nhưng không gửi hình ảnh. Đóng ứng dụng khác đang dùng camera, kiểm tra thiết bị, rồi thử lại.'
+          : `Không mở được camera: ${error.message}`);
     }
   } finally {if(version===generation) opening=false;controls();}
 }
 function resume() {
   if(!ready || pending || disposed)return;
   session ??= new PoseSession(crypto.randomUUID(),new Date().toISOString());
-  engine.resetMotion();running=true;session.resume(performance.now());
+  engine.resetMotion();running=true;
+  if (restUntil > performance.now()) session.pause(performance.now());
+  else session.resume(performance.now());
   status('Đang theo dõi chuyển động.');controls();
 }
 function sendSave() {
@@ -170,6 +276,14 @@ function sendSave() {
   window.parent.postMessage(JSON.stringify({type:'aigym:save',requestId:pending.id,session:pending}),location.origin);
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{$('save-status').textContent='Chưa nhận được xác nhận. Thử lưu lại để kiểm tra.';$('retry').hidden=false;},15000);
+}
+function closeCamera() {
+  if(session&&!saved&&session.seconds(performance.now())>0&&!confirm('Phiên tập chưa lưu. Đóng và bỏ phiên này?')) {
+    window.parent.postMessage(JSON.stringify({type:'aigym:closeCancelled'}),location.origin);
+    return;
+  }
+  dispose();
+  window.parent.postMessage(JSON.stringify({type:'aigym:close'}),location.origin);
 }
 function finish() {
   if(!session || pending)return;
@@ -183,6 +297,7 @@ function finish() {
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==window.parent||typeof event.data!=='string')return;
   let data;try{data=JSON.parse(event.data);}catch{return;}
+  if(data.type==='aigym:requestClose'){closeCamera();return;}
   if(data.type==='aigym:dispose'){dispose();return;}
   if(data.type!=='aigym:saved'||!pending||data.requestId!==pending.id)return;
   clearTimeout(saveTimer);saved=data.ok===true;
@@ -193,10 +308,7 @@ $('start').onclick=open;
 $('pause').onclick=()=>{pause();status('Đã tạm dừng. Bấm tiếp tục để tập.');};
 $('finish').onclick=finish;$('retry').onclick=sendSave;
 $('exercise').onchange=()=>{engine.setExercise($('exercise').value);clearOverlay();};
-$('close').onclick=()=>{
-  if(session&&!saved&&session.seconds(performance.now())>0&&!confirm('Phiên tập chưa lưu. Đóng và bỏ phiên này?'))return;
-  dispose();window.parent.postMessage(JSON.stringify({type:'aigym:close'}),location.origin);
-};
+$('close').onclick=closeCamera;
 document.addEventListener('visibilitychange',()=>{if(document.hidden){releaseCamera();status('Đã tạm dừng khi chuyển trang. Bấm Mở camera để tiếp tục.');}});
 window.addEventListener('pagehide',dispose);
 const clockTimer=setInterval(()=>{const seconds=session?.seconds(performance.now())??0;$('time').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;},250);

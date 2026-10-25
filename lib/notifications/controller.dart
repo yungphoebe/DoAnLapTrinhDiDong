@@ -67,6 +67,7 @@ class NotificationController extends ChangeNotifier {
 
   ReminderSettings _effective(ReminderSettings s) => s.copyWith(
     workoutEnabled: s.workoutEnabled && !_blocked.contains('workout'),
+    runningEnabled: s.runningEnabled && !_blocked.contains('running'),
     waterEnabled: s.waterEnabled && !_blocked.contains('water'),
     weeklyEnabled: s.weeklyEnabled && !_blocked.contains('weekly'),
   );
@@ -148,6 +149,7 @@ class NotificationController extends ChangeNotifier {
     notifyListeners();
     try {
       if (!draft.workoutEnabled) _blocked.add('workout');
+      if (!draft.runningEnabled) _blocked.add('running');
       if (!draft.waterEnabled) _blocked.add('water');
       if (!draft.weeklyEnabled) _blocked.add('weekly');
       final prefs = await SharedPreferences.getInstance();

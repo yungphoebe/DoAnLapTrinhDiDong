@@ -44,8 +44,8 @@ globalThis.gymNotifications = (() => {
       const state = await gymNotificationStore.read();
       if (state?.owner !== owner) return;
       const settings = JSON.parse(value);
-      await gymNotificationStore.write({...state, enabled: {workout: settings.workoutEnabled, water: settings.waterEnabled, weekly: settings.weeklyEnabled}});
-      if (!settings.workoutEnabled || !settings.waterEnabled || !settings.weeklyEnabled) {
+      await gymNotificationStore.write({...state, enabled: {workout: settings.workoutEnabled, running: settings.runningEnabled, water: settings.waterEnabled, weekly: settings.weeklyEnabled}});
+      if (!settings.workoutEnabled || !settings.runningEnabled || !settings.waterEnabled || !settings.weeklyEnabled) {
         const reg = await registration();
         for (const notification of await reg.getNotifications())
           if (!settings[`${notification.data?.kind}Enabled`]) notification.close();

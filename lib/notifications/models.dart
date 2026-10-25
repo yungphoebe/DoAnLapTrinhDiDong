@@ -3,6 +3,9 @@ class ReminderSettings {
     this.workoutEnabled = false,
     this.workoutTime = '18:00',
     this.workoutDays = const [1, 2, 3, 4, 5, 6, 7],
+    this.runningEnabled = false,
+    this.runningTime = '07:00',
+    this.runningDays = const [1, 2, 3, 4, 5, 6, 7],
     this.waterEnabled = false,
     this.waterStart = '09:00',
     this.waterEnd = '21:00',
@@ -13,15 +16,18 @@ class ReminderSettings {
     this.timeZone = 'Asia/Bangkok',
     this.revision = 0,
   });
-  final bool workoutEnabled, waterEnabled, weeklyEnabled;
-  final String workoutTime, waterStart, waterEnd, weeklyTime, timeZone;
-  final List<int> workoutDays;
+  final bool workoutEnabled, runningEnabled, waterEnabled, weeklyEnabled;
+  final String workoutTime, runningTime, waterStart, waterEnd, weeklyTime, timeZone;
+  final List<int> workoutDays, runningDays;
   final int waterIntervalMinutes, weeklyDay, revision;
-  bool get anyEnabled => workoutEnabled || waterEnabled || weeklyEnabled;
+  bool get anyEnabled => workoutEnabled || runningEnabled || waterEnabled || weeklyEnabled;
   Map<String, dynamic> toJson() => {
     'workoutEnabled': workoutEnabled,
     'workoutTime': workoutTime,
     'workoutDays': workoutDays,
+    'runningEnabled': runningEnabled,
+    'runningTime': runningTime,
+    'runningDays': runningDays,
     'waterEnabled': waterEnabled,
     'waterStart': waterStart,
     'waterEnd': waterEnd,
@@ -37,6 +43,10 @@ class ReminderSettings {
     workoutTime: j['workoutTime'] as String? ?? '18:00',
     workoutDays:
         (j['workoutDays'] as List?)?.cast<int>() ?? const [1, 2, 3, 4, 5, 6, 7],
+    runningEnabled: j['runningEnabled'] == true,
+    runningTime: j['runningTime'] as String? ?? '07:00',
+    runningDays:
+        (j['runningDays'] as List?)?.cast<int>() ?? const [1, 2, 3, 4, 5, 6, 7],
     waterEnabled: j['waterEnabled'] == true,
     waterStart: j['waterStart'] as String? ?? '09:00',
     waterEnd: j['waterEnd'] as String? ?? '21:00',
@@ -51,6 +61,9 @@ class ReminderSettings {
     bool? workoutEnabled,
     String? workoutTime,
     List<int>? workoutDays,
+    bool? runningEnabled,
+    String? runningTime,
+    List<int>? runningDays,
     bool? waterEnabled,
     String? waterStart,
     String? waterEnd,
@@ -65,6 +78,9 @@ class ReminderSettings {
     'workoutEnabled': ?workoutEnabled,
     'workoutTime': ?workoutTime,
     'workoutDays': ?workoutDays,
+    'runningEnabled': ?runningEnabled,
+    'runningTime': ?runningTime,
+    'runningDays': ?runningDays,
     'waterEnabled': ?waterEnabled,
     'waterStart': ?waterStart,
     'waterEnd': ?waterEnd,
@@ -102,6 +118,7 @@ class NotificationLink {
   String get route {
     final path = switch (kind) {
       'workout' => '/workouts',
+      'running' => '/activity',
       'water' => '/water',
       'weekly' => '/weekly-report',
       _ => '/notifications',

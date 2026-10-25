@@ -24,6 +24,13 @@ test('push is displayed once with its stable event tag', async () => {
   assert.equal(w.displayed.length, 1); assert.equal(w.displayed[0].options.tag, 'aigym-event-1');
   assert.equal(w.displayed[0].options.data.owner, 'a');
 });
+test('running reminder push is accepted and tagged to open activity tracking', async () => {
+  const w = worker({owner: 'a', sessionId: 'session-a', enabled: {running: true}});
+  await w.dispatch('push', {data: {json: () => ({sessionId: 'session-a', kind: 'running', id: 'run-1', title: 'Run', body: 'Reminder'})}});
+  assert.equal(w.displayed.length, 1);
+  assert.equal(w.displayed[0].options.tag, 'aigym-run-1');
+  assert.equal(w.displayed[0].options.data.kind, 'running');
+});
 test('disabled kinds and old account sessions are discarded', async () => {
   const w = worker({owner: 'b', sessionId: 'session-b', enabled: {water: false}});
   for (const sessionId of ['session-a','session-b'])

@@ -36,7 +36,9 @@ Tài khoản demo có sẵn: **admin123@gmail.com**, mật khẩu **123123123Az!
 | Đăng nhập, đăng ký, quên mật khẩu | `lib/screens/auth.dart` |
 | Mục tiêu, chỉ số cơ thể, lịch tập | `lib/screens/onboarding.dart` |
 | Trang chủ | `lib/screens/home.dart` |
-| Camera AI minh họa | `lib/screens/camera.dart` |
+| Camera AI ảnh / pose trên web | `lib/screens/camera.dart`, `lib/screens/pose_camera_web.dart`, `web/pose_camera.mjs` |
+| Lịch tập AI và kết quả từng bài | `lib/screens/workout_plans.dart`, backend `WorkoutController` |
+| Đi bộ / chạy bộ | `lib/screens/activity.dart`, backend `ActivityController` |
 | AI Coach | `lib/screens/coach.dart` |
 | Cộng đồng / PT | `lib/screens/community.dart` |
 | Cài đặt hệ thống, AI Coach & Báo cáo | `lib/screens/settings.dart` |
@@ -50,7 +52,9 @@ Xem [ảnh tổng hợp 12 màn hình](docs/previews/overview.png). Ảnh render
 
 Chuyển tab giữ lại trạng thái chat, lượt thích và bình luận. Có chọn mục tiêu/lịch tập, điều chỉnh chỉ số, xem chi tiết bài tập, chat mẫu, lọc PT, xem hồ sơ, bật tắt cài đặt, và tạm dừng/kết thúc phiên camera mẫu. Cài đặt AI Coach chỉ áp dụng khi bấm **Lưu thay đổi**; quay lại sẽ bỏ thay đổi chưa lưu.
 
-Ứng dụng hiện là phần giao diện: chưa kết nối tài khoản, OTP, mạng xã hội, AI, camera thật, thông báo hệ thống hoặc Apple Health. Ảnh camera và chỉ số là ảnh tĩnh minh họa. Dữ liệu chỉ giữ trong bộ nhớ phiên chạy và mất khi khởi động lại. Ảnh được thay bằng ảnh minh họa vì file ảnh gốc trong thiết kế chưa có riêng.
+Đăng nhập, hồ sơ, kế hoạch tập, lịch sử, cộng đồng và AI Coach dùng backend hiện có. Lịch tập AI cần backend ASP.NET Core kết nối LM Studio; bài tập được chọn theo ID trong danh mục, có thể sửa trước/sau khi lưu và kết quả được gắn với đúng bài trong đúng lịch. Pose camera trên web dùng MediaPipe local và hỗ trợ các bài có trong bộ quy tắc; Android/Windows camera hiện chỉ gửi ảnh cho AI nhận xét, chưa đếm reps. Đi bộ/chạy ghi bước từ cảm biến và quãng đường GPS khi thiết bị/quyền hỗ trợ, còn thiếu dữ liệu thì hiển thị rõ thay vì tạo số giả.
+
+Theo dõi đi bộ/chạy và quyền platform được mô tả trong [camera và vận động](docs/camera-ai.md). Dữ liệu kế hoạch, kết quả bài tập và hoạt động được lưu ở SQL Server qua các migration backend.
 
 ## Kiểm tra
 

@@ -6,6 +6,7 @@ import 'screens/auth.dart';
 import 'screens/pose_camera.dart';
 import 'screens/workout_history.dart';
 import 'screens/workout_plans.dart';
+import 'screens/activity.dart';
 import 'screens/onboarding.dart';
 import 'screens/reset_password.dart';
 import 'screens/settings.dart';
@@ -62,6 +63,7 @@ class MainApp extends StatelessWidget {
       '/home': (_) => const AppShell(),
       '/workout-history': (_) => const WorkoutHistoryScreen(),
       '/workout-plans': (_) => const WorkoutPlansScreen(),
+      '/activity': (_) => const ActivityScreen(),
       '/settings': (_) => const SettingsScreen(),
       '/nutrition': (_) => const NutritionScreen(),
       '/coach-settings': (_) => const CoachSettingsScreen(),
@@ -71,6 +73,7 @@ class MainApp extends StatelessWidget {
       '/feedback': (_) => const FeedbackScreen(),
       '/terms': (_) => const SupportScreen(document: 'terms'),
       '/privacy': (_) => const SupportScreen(document: 'privacy'),
+      '/ai-test': (_) => const AITestPage(),
     },
     onGenerateRoute: (settings) {
       final route = Uri.parse(settings.name ?? '');
@@ -86,10 +89,9 @@ class MainApp extends StatelessWidget {
           builder: (_) => NotificationDestinationScreen(
             kind: kind,
             at: DateTime.tryParse(route.queryParameters['at'] ?? ''),
-      '/ai-test': (_) => const AITestPage(),
-    },
-    onGenerateRoute: (settings) {
-      final route = Uri.parse(settings.name ?? '');
+          ),
+        );
+      }
       if (route.path == '/camera') {
         return MaterialPageRoute<void>(
           settings: settings,

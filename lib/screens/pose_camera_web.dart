@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 import '../services/api_client.dart';
 import '../services/profile_service.dart';
 import '../models/workout.dart';
+import '../services/workout_service.dart';
 
 class PoseCameraScreen extends StatefulWidget {
   const PoseCameraScreen({super.key, this.exercise});
@@ -20,10 +21,25 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
   final _token = ApiClient.instance.token;
   web.HTMLIFrameElement? _frame;
   late final JSFunction _listener;
+  bool _allowPop = false;
+  bool _closeRequested = false;
+  bool _frameReady = false;
   final _pending = <String>{};
   final _uuid = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   );
+
+  String? get _poseMode {
+    final name = widget.exercise?.name.toLowerCase() ?? '';
+    if (name.contains('squat')) return 'squat';
+    if (name.contains('push-up') || name.contains('pushup') || name.contains('chống đẩy')) {
+      return 'pushup';
+    }
+    if (name.contains('jumping jack')) return 'jumpingJack';
+    if (name.contains('shoulder press') || name.contains('đẩy vai')) return 'shoulderPress';
+    if (name.contains('biceps curl') || name.contains('tay trước')) return 'bicepsCurl';
+    return null;
+  }
 
   @override
   void initState() {
@@ -39,6 +55,24 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
       jsonEncode(message).toJS,
       web.window.location.origin.toJS,
     );
+  }
+
+  void _requestClose() {
+    if (_closeRequested) return;
+    if (!_frameReady || _frame?.contentWindow == null) {
+      _allowPopAndExit();
+      return;
+    }
+    _closeRequested = true;
+    _send({'type': 'aigym:requestClose'});
+  }
+
+  void _allowPopAndExit() {
+    if (!mounted || _allowPop) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
   }
 
   Future<void> _message(web.MessageEvent event) async {
@@ -57,7 +91,11 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
       return;
     }
     if (message['type'] == 'aigym:close') {
-      Navigator.of(context).pop();
+      _allowPopAndExit();
+      return;
+    }
+    if (message['type'] == 'aigym:closeCancelled') {
+      _closeRequested = false;
       return;
     }
     if (message['type'] != 'aigym:save') return;
@@ -113,6 +151,37 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
       if (feedback.values.any((count) => count < 0)) {
         throw const FormatException();
       }
+      final plannedExercise = widget.exercise;
+      if (plannedExercise != null) {
+        final mode = _poseMode;
+        final matching = exercises
+            .where((item) => item['exercise'] == mode)
+            .toList();
+        if (mode == null ||
+            plannedExercise.planId == null ||
+            plannedExercise.planExerciseId == null ||
+            matching.length != 1) {
+          throw const FormatException();
+        }
+        final measuredReps = matching.single['reps'] as int;
+        final measuredSets =
+            (measuredReps ~/ plannedExercise.reps).clamp(0, plannedExercise.sets);
+        final timeTargetMet = plannedExercise.targetSeconds == null ||
+            duration >= plannedExercise.targetSeconds! * plannedExercise.sets;
+        final completed =
+            measuredSets == plannedExercise.sets && timeTargetMet;
+        await WorkoutService().savePlanExerciseResult(
+          planId: plannedExercise.planId!,
+          planExerciseId: plannedExercise.planExerciseId!,
+          id: id,
+          startedAt: startedAt,
+          durationSeconds: duration,
+          actualSets: measuredSets,
+          actualReps: measuredReps,
+          completed: completed,
+          feedbackCounts: feedback,
+        );
+      }
       await ProfileService.instance
           .saveWorkout(
             id: id,
@@ -151,37 +220,84 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    child: Scaffold(
-      body: SafeArea(
-        child: HtmlElementView.fromTagName(
-          tagName: 'iframe',
-          onElementCreated: (element) {
-            final frame = element as web.HTMLIFrameElement;
-            _frame = frame;
-            frame
-              ..src = Uri.parse(web.document.baseURI)
-                  .resolve('pose_camera.html')
-                  .toString()
-              ..allow = 'camera'
-              ..title = 'Camera hướng dẫn tập luyện';
-            frame.style
-              ..border = '0'
-              ..width = '100%'
-              ..height = '100%';
-            frame.addEventListener(
-              'load',
-              ((web.Event _) {
-                _send({
-                  'type': 'aigym:configure',
-                  'exercise': widget.exercise?.id,
-                });
-              }).toJS,
-            );
-          },
+  Widget build(BuildContext context) {
+    final exercise = widget.exercise;
+    if (exercise != null && _poseMode == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(exercise.name)),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Bài "${exercise.name}" chưa được hỗ trợ nhận diện bằng camera.'),
+              const SizedBox(height: 12),
+              Text(exercise.description),
+              const SizedBox(height: 12),
+              const Text('Không có kết quả nhận diện hoặc trạng thái hoàn thành nào được tạo.'),
+            ],
+          ),
+        ),
+      );
+    }
+    return PopScope<Object?>(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _requestClose();
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(exercise?.name ?? 'Camera AI')),
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (exercise != null)
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Text(
+                    'Ngày ${exercise.dayNumber} · ${exercise.sets} hiệp × ${exercise.reps} lần'
+                    '${exercise.targetSeconds == null ? '' : ' / ${exercise.targetSeconds} giây'}'
+                    ' · nghỉ ${exercise.restSeconds} giây'
+                    '${exercise.muscleGroup == null ? '' : ' · ${exercise.muscleGroup}'}',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              Expanded(
+                child: HtmlElementView.fromTagName(
+                  tagName: 'iframe',
+                  onElementCreated: (element) {
+                    final frame = element as web.HTMLIFrameElement;
+                    _frame = frame;
+                    frame
+                      ..src = Uri.parse(web.document.baseURI)
+                          .resolve('pose_camera.html')
+                          .toString()
+                      ..allow = 'camera'
+                      ..title = 'Camera hướng dẫn tập luyện';
+                    frame.style
+                      ..border = '0'
+                      ..width = '100%'
+                      ..height = '100%';
+                    frame.addEventListener(
+                      'load',
+                      ((web.Event _) {
+                        _frameReady = true;
+                        _send({
+                          'type': 'aigym:configure',
+                          'exercise': _poseMode,
+                          'targetSets': exercise?.sets,
+                          'targetReps': exercise?.reps,
+                          'targetSeconds': exercise?.targetSeconds,
+                          'restSeconds': exercise?.restSeconds,
+                        });
+                      }).toJS,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

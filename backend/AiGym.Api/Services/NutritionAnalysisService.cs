@@ -28,7 +28,7 @@ public sealed class NutritionAnalysisService(HttpClient client, IOptions<LmStudi
                 "If there is no recognizable food, return {\"isFood\":false}. Do not invent food for unrelated images.",
             input = new object[] { new { type = "text", content = "Ước tính dinh dưỡng của toàn bộ khẩu phần trong ảnh." },
                 new { type = "image", data_url = $"data:{mime};base64,{request.ImageBase64}" } },
-            reasoning = "off", store = false, stream = false, temperature = 0.1, max_output_tokens = 512
+            store = false, stream = false, temperature = 0.1, max_output_tokens = 512
         }, ct);
         response.EnsureSuccessStatusCode();
         try

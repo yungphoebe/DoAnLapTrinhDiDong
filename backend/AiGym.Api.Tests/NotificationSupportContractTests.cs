@@ -66,7 +66,15 @@ public sealed class NotificationSupportContractTests(ApiFactory factory) : IClas
     {
         using var a = await Account();
         using var b = await Account();
-        var request = new ReminderSettingsDto { WorkoutEnabled = true, WaterEnabled = true, TimeZone = "Asia/Bangkok" };
+        var request = new ReminderSettingsDto
+        {
+            WorkoutEnabled = true,
+            RunningEnabled = true,
+            RunningTime = "06:30",
+            RunningDays = [2, 4, 6],
+            WaterEnabled = true,
+            TimeZone = "Asia/Bangkok"
+        };
         var saved = await a.Client.PutAsJsonAsync("/api/notifications/settings", request);
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
         var settings = (await saved.Content.ReadFromJsonAsync<ReminderSettingsDto>())!;
@@ -76,15 +84,19 @@ public sealed class NotificationSupportContractTests(ApiFactory factory) : IClas
         var loadedA = (await a.Client.GetFromJsonAsync<ReminderSettingsDto>("/api/notifications/settings"))!;
         var loadedB = (await b.Client.GetFromJsonAsync<ReminderSettingsDto>("/api/notifications/settings"))!;
         Assert.True(loadedA.WaterEnabled);
+        Assert.True(loadedA.RunningEnabled);
+        Assert.Equal(new[] { 2, 4, 6 }, loadedA.RunningDays);
         Assert.False(loadedB.WaterEnabled);
         Assert.Equal(0, loadedB.Revision);
         settings.WaterEnabled = false;
         settings.WorkoutEnabled = false;
+        settings.RunningEnabled = false;
         Assert.Equal(HttpStatusCode.OK, (await a.Client.PutAsJsonAsync("/api/notifications/settings", settings)).StatusCode);
         var disabled = (await a.Client.GetFromJsonAsync<ReminderSettingsDto>("/api/notifications/settings"))!;
         Assert.Equal(2, disabled.Revision);
         Assert.False(disabled.WaterEnabled);
         Assert.False(disabled.WorkoutEnabled);
+        Assert.False(disabled.RunningEnabled);
         disabled.WaterStart = "22:00";
         disabled.WaterEnd = "09:00";
         Assert.Equal(HttpStatusCode.BadRequest, (await a.Client.PutAsJsonAsync("/api/notifications/settings", disabled)).StatusCode);

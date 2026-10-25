@@ -20,11 +20,15 @@ dependencies:
   timezone: 0.11.0
   flutter_tts: ^4.2.5
   health: ^13.2.1
-  http: ^1.6.0
-  image_picker: ^1.1.2
-  shared_preferences: ^2.2.3
   speech_to_text: ^7.5.0
   web: ^1.1.1
+  geolocator: ^14.0.1
+  pedometer: ^4.2.0
+  permission_handler: ^13.0.2
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  printing: ^5.15.1
+  pdf: ^3.13.1
 
 dev_dependencies:
   flutter_test:

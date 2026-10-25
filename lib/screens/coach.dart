@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/ai_config.dart';
 import '../services/ai_service.dart';
 import '../services/lm_studio_service.dart';
 import '../services/workout_service.dart';
@@ -244,40 +245,42 @@ class _CoachScreenState extends State<CoachScreen> {
   Future<void> _analyzeImage() async {
     if (_isSending) return;
 
-    final image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1280,
-    );
-    if (image == null) return;
-
-    setState(() {
-      _messages.add((
-        text: 'Hãy phân tích kỹ thuật trong ảnh này.',
-        fromUser: true,
-      ));
-      _isSending = true;
-    });
-    _scrollToBottom();
-
     try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1280,
+      );
+      if (image == null) return;
+      if (!mounted) return;
+      setState(() {
+        _messages.add((
+          text: 'Hãy phân tích kỹ thuật trong ảnh này.',
+          fromUser: true,
+        ));
+        _isSending = true;
+      });
+      _scrollToBottom();
+
       final models = await _lmStudioService.getModels();
-      if (models.isEmpty) {
-        throw Exception('Không tìm thấy mô hình AI.');
+      if (!models.contains(AIConfig.visionModelId)) {
+        throw StateError(
+          'Hãy tải và nạp model Vision "${AIConfig.visionModelId}" trong LM Studio.',
+        );
       }
-      final reply = await _lmStudioService.chat(
-        modelId: models.first,
+      final reply = await _lmStudioService.analyzeImage(
+        modelId: AIConfig.visionModelId,
         prompt: 'Phân tích tư thế tập luyện trong ảnh. Nêu điểm đúng, lỗi cần sửa và một lời khuyên an toàn. Trả lời ngắn gọn.',
         imageBytes: await image.readAsBytes(),
         imageMimeType: _imageMimeType(image.name),
       );
       if (!mounted) return;
       setState(() => _messages.add((text: reply, fromUser: false)));
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _messages.add((
-          text: 'Không thể phân tích ảnh. Hãy chọn model Vision và kiểm tra LMStudio đang chạy.',
+          text: 'Không thể chọn hoặc phân tích ảnh: $error',
           fromUser: false,
         ));
       });
@@ -614,7 +617,9 @@ class _CoachScreenState extends State<CoachScreen> {
                   prefixIcon: IconButton(
                     tooltip: 'Nhập giọng nói',
                     icon: Icon(
-                      _isListening ? Icons.stop_circle_outlined : Icons.mic_none,
+                      _isListening
+                          ? Icons.stop_circle_outlined
+                          : Icons.mic_none,
                       size: 19,
                     ),
                     onPressed: _isSending ? null : _toggleListening,

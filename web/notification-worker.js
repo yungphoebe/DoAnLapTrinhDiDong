@@ -5,7 +5,7 @@ self.addEventListener('push', event => {
     try { payload = event.data.json(); } catch (_) { return; }
     const state = await gymNotificationStore.read();
     if (!state || !state.owner || state.sessionId !== payload.sessionId || !state.enabled?.[payload.kind]) return;
-    if (!['workout', 'water', 'weekly'].includes(payload.kind)) return;
+    if (!['workout', 'running', 'water', 'weekly'].includes(payload.kind)) return;
     await self.registration.showNotification(payload.title, {
       body: payload.body, tag: `aigym-${payload.id}`, icon: '../icons/Icon-192.png',
       data: { owner: state.owner, kind: payload.kind, id: payload.id, at: payload.scheduledAtUtc }

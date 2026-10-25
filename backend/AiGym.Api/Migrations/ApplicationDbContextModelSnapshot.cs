@@ -22,6 +22,49 @@ namespace AiGym.Api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AiGym.Api.Models.ActivitySession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActivityType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("Completed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("DistanceEstimated")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("DistanceMeters")
+                        .HasColumnType("float");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RouteJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("Steps")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "StartedAt");
+
+                    b.ToTable("ActivitySessions");
+                });
+
             modelBuilder.Entity("AiGym.Api.Models.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -118,6 +161,47 @@ namespace AiGym.Api.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.BrowserPushSubscription", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("BrowserPushSubscriptions");
                 });
 
             modelBuilder.Entity("AiGym.Api.Models.CoachConversation", b =>
@@ -223,6 +307,29 @@ namespace AiGym.Api.Migrations
                         .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.ToTable("ConfirmedScanResults");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.DailyActivityGoal", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("DistanceGoalKm")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("MinutesGoal")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StepsGoal")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserId", "Date");
+
+                    b.ToTable("DailyActivityGoals");
                 });
 
             modelBuilder.Entity("AiGym.Api.Models.DailyCalorieTarget", b =>
@@ -501,6 +608,212 @@ namespace AiGym.Api.Migrations
                     b.ToTable("Posts");
                 });
 
+            modelBuilder.Entity("AiGym.Api.Models.PostComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PostId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("PostId", "CreatedAt", "Id");
+
+                    b.ToTable("PostComments");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.PostLike", b =>
+                {
+                    b.Property<int>("PostId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("PostId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PostLikes");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.ReminderSettings", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("LastProcessedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RunningDays")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("RunningEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RunningMinute")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("WaterEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("WaterEndMinute")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WaterIntervalMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WaterStartMinute")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WeeklyDay")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("WeeklyEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("WeeklyMinute")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkoutDays")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("WorkoutEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("WorkoutMinute")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("ReminderSettings");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.UserFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserFeedback");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.UserNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("NextPushUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PushAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PushLeaseUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("PushSent")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ScheduledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("SettingsRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ScheduledAtUtc");
+
+                    b.ToTable("UserNotifications");
+                });
+
             modelBuilder.Entity("AiGym.Api.Models.WorkoutPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -509,6 +822,13 @@ namespace AiGym.Api.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DaysPerWeek")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Equipment")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Goal")
                         .HasColumnType("nvarchar(max)");
@@ -523,6 +843,13 @@ namespace AiGym.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("SessionMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrainingLocation")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -541,6 +868,9 @@ namespace AiGym.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("DayNumber")
+                        .HasColumnType("int");
+
                     b.Property<int>("ExerciseId")
                         .HasColumnType("int");
 
@@ -556,6 +886,9 @@ namespace AiGym.Api.Migrations
                     b.Property<int>("Sets")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TargetSeconds")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("WorkoutPlanId")
                         .HasColumnType("uniqueidentifier");
 
@@ -566,6 +899,52 @@ namespace AiGym.Api.Migrations
                     b.HasIndex("WorkoutPlanId", "Order");
 
                     b.ToTable("WorkoutPlanExercises");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.WorkoutPlanExerciseResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ActualReps")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ActualSets")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Completed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FeedbackJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("WorkoutPlanExerciseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkoutPlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkoutPlanExerciseId");
+
+                    b.HasIndex("UserId", "StartedAt");
+
+                    b.HasIndex("WorkoutPlanId", "WorkoutPlanExerciseId", "StartedAt");
+
+                    b.ToTable("WorkoutPlanExerciseResults");
                 });
 
             modelBuilder.Entity("AiGym.Api.Models.WorkoutSession", b =>
@@ -736,6 +1115,26 @@ namespace AiGym.Api.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AiGym.Api.Models.ActivitySession", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.BrowserPushSubscription", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AiGym.Api.Models.CoachConversation", b =>
                 {
                     b.HasOne("AiGym.Api.Models.ApplicationUser", "User")
@@ -767,6 +1166,15 @@ namespace AiGym.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.DailyActivityGoal", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("AiGym.Api.Models.DailyCalorieTarget", b =>
@@ -839,6 +1247,69 @@ namespace AiGym.Api.Migrations
                     b.Navigation("Author");
                 });
 
+            modelBuilder.Entity("AiGym.Api.Models.PostComment", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AiGym.Api.Models.Post", "Post")
+                        .WithMany("Comments")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.PostLike", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.Post", "Post")
+                        .WithMany("Likes")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.ReminderSettings", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.UserFeedback", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.UserNotification", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AiGym.Api.Models.WorkoutPlan", b =>
                 {
                     b.HasOne("AiGym.Api.Models.ApplicationUser", "User")
@@ -867,6 +1338,33 @@ namespace AiGym.Api.Migrations
                     b.Navigation("Exercise");
 
                     b.Navigation("WorkoutPlan");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.WorkoutPlanExerciseResult", b =>
+                {
+                    b.HasOne("AiGym.Api.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AiGym.Api.Models.WorkoutPlanExercise", "WorkoutPlanExercise")
+                        .WithMany("Results")
+                        .HasForeignKey("WorkoutPlanExerciseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AiGym.Api.Models.WorkoutPlan", "WorkoutPlan")
+                        .WithMany("ExerciseResults")
+                        .HasForeignKey("WorkoutPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("WorkoutPlan");
+
+                    b.Navigation("WorkoutPlanExercise");
                 });
 
             modelBuilder.Entity("AiGym.Api.Models.WorkoutSession", b =>
@@ -946,11 +1444,25 @@ namespace AiGym.Api.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("AiGym.Api.Models.Post", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Likes");
+                });
+
             modelBuilder.Entity("AiGym.Api.Models.WorkoutPlan", b =>
                 {
                     b.Navigation("Appointments");
 
+                    b.Navigation("ExerciseResults");
+
                     b.Navigation("Exercises");
+                });
+
+            modelBuilder.Entity("AiGym.Api.Models.WorkoutPlanExercise", b =>
+                {
+                    b.Navigation("Results");
                 });
 #pragma warning restore 612, 618
         }

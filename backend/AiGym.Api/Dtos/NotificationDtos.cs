@@ -7,6 +7,9 @@ public sealed class ReminderSettingsDto
     public bool WorkoutEnabled { get; set; }
     public string WorkoutTime { get; set; } = "18:00";
     public int[] WorkoutDays { get; set; } = [1, 2, 3, 4, 5, 6, 7];
+    public bool RunningEnabled { get; set; }
+    public string RunningTime { get; set; } = "07:00";
+    public int[] RunningDays { get; set; } = [1, 2, 3, 4, 5, 6, 7];
     public bool WaterEnabled { get; set; }
     public string WaterStart { get; set; } = "09:00";
     public string WaterEnd { get; set; } = "21:00";
@@ -27,22 +30,30 @@ public sealed class ReminderSettingsDto
 
     public bool Valid()
     {
-        if (!Minute(WorkoutTime, out _) || !Minute(WaterStart, out var start) ||
+        if (!Minute(WorkoutTime, out _) || !Minute(RunningTime, out _) ||
+            !Minute(WaterStart, out var start) ||
             !Minute(WaterEnd, out var end) || !Minute(WeeklyTime, out _) || start > end ||
             WaterIntervalMinutes < 60 || WaterIntervalMinutes > 240 || WeeklyDay < 1 || WeeklyDay > 7 ||
-            WorkoutDays is null || WorkoutDays.Length < 1 || WorkoutDays.Length > 7 || WorkoutDays.Any(d => d < 1 || d > 7) ||
+            !ValidDays(WorkoutDays) || !ValidDays(RunningDays) ||
             string.IsNullOrEmpty(TimeZone) || TimeZone.Length > 100) return false;
         try { TimeZoneInfo.FindSystemTimeZoneById(TimeZone); return true; }
         catch (TimeZoneNotFoundException) { return false; }
         catch (InvalidTimeZoneException) { return false; }
     }
 
+    private static bool ValidDays(int[]? days) =>
+        days is { Length: >= 1 and <= 7 } && days.All(d => d is >= 1 and <= 7) &&
+        days.Distinct().Count() == days.Length;
+
     public void Apply(ReminderSettings settings)
     {
         Minute(WorkoutTime, out var workout); Minute(WaterStart, out var start);
-        Minute(WaterEnd, out var end); Minute(WeeklyTime, out var weekly);
+        Minute(RunningTime, out var running); Minute(WaterEnd, out var end);
+        Minute(WeeklyTime, out var weekly);
         settings.WorkoutEnabled = WorkoutEnabled; settings.WorkoutMinute = workout;
         settings.WorkoutDays = string.Join(',', WorkoutDays.Distinct().Order());
+        settings.RunningEnabled = RunningEnabled; settings.RunningMinute = running;
+        settings.RunningDays = string.Join(',', RunningDays.Distinct().Order());
         settings.WaterEnabled = WaterEnabled; settings.WaterStartMinute = start; settings.WaterEndMinute = end;
         settings.WaterIntervalMinutes = WaterIntervalMinutes;
         settings.WeeklyEnabled = WeeklyEnabled; settings.WeeklyDay = WeeklyDay; settings.WeeklyMinute = weekly;
@@ -53,6 +64,8 @@ public sealed class ReminderSettingsDto
     {
         WorkoutEnabled = s.WorkoutEnabled, WorkoutTime = Format(s.WorkoutMinute),
         WorkoutDays = s.WorkoutDays.Split(',').Select(int.Parse).ToArray(),
+        RunningEnabled = s.RunningEnabled, RunningTime = Format(s.RunningMinute),
+        RunningDays = s.RunningDays.Split(',').Select(int.Parse).ToArray(),
         WaterEnabled = s.WaterEnabled, WaterStart = Format(s.WaterStartMinute), WaterEnd = Format(s.WaterEndMinute),
         WaterIntervalMinutes = s.WaterIntervalMinutes, WeeklyEnabled = s.WeeklyEnabled,
         WeeklyDay = s.WeeklyDay, WeeklyTime = Format(s.WeeklyMinute), TimeZone = s.TimeZone, Revision = s.Revision

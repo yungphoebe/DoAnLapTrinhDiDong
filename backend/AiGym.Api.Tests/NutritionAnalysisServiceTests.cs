@@ -22,7 +22,7 @@ public sealed class NutritionAnalysisServiceTests
         Assert.False(result.IsFallbackEstimate);
         Assert.Equal("/api/v1/chat", handler.Path);
         var body = handler.Request;
-        Assert.Equal("off", body.GetProperty("reasoning").GetString());
+        Assert.False(body.TryGetProperty("reasoning", out _));
         Assert.False(body.GetProperty("store").GetBoolean());
         Assert.Equal("image", body.GetProperty("input")[1].GetProperty("type").GetString());
         Assert.Equal($"data:image/png;base64,{Image}", body.GetProperty("input")[1].GetProperty("data_url").GetString());
@@ -74,4 +74,3 @@ public sealed class NutritionAnalysisServiceTests
         }
     }
 }
-

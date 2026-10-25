@@ -8,6 +8,10 @@
 	<string>Ứng dụng cần truy cập ảnh để phân tích bài tập với AI.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Ứng dụng cần camera để chụp ảnh bài tập và phân tích với AI.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ứng dụng cần vị trí khi đi bộ hoặc chạy để đo quãng đường bằng GPS.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Ứng dụng cần dữ liệu chuyển động để đếm bước chân trong buổi đi bộ hoặc chạy.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ứng dụng cần microphone để nhập câu hỏi cho AI Coach bằng giọng nói.</string>
 	<key>NSHealthShareUsageDescription</key>

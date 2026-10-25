@@ -22,6 +22,9 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Exercise> Exercises => Set<Exercise>();
     public DbSet<WorkoutPlan> WorkoutPlans => Set<WorkoutPlan>();
     public DbSet<WorkoutPlanExercise> WorkoutPlanExercises => Set<WorkoutPlanExercise>();
+    public DbSet<WorkoutPlanExerciseResult> WorkoutPlanExerciseResults => Set<WorkoutPlanExerciseResult>();
+    public DbSet<ActivitySession> ActivitySessions => Set<ActivitySession>();
+    public DbSet<DailyActivityGoal> DailyActivityGoals => Set<DailyActivityGoal>();
     public DbSet<PlanAppointment> PlanAppointments => Set<PlanAppointment>();
     public DbSet<Food> Foods => Set<Food>();
     public DbSet<Meal> Meals => Set<Meal>();
@@ -64,6 +67,7 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             e.HasKey(s => s.UserId); e.Property(s => s.UserId).HasMaxLength(450);
             e.Property(s => s.WorkoutDays).HasMaxLength(20); e.Property(s => s.TimeZone).HasMaxLength(100);
+            e.Property(s => s.RunningDays).HasMaxLength(20);
             e.Property(s => s.Revision).IsConcurrencyToken();
             e.HasOne<ApplicationUser>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -130,6 +134,7 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             // Avoid SQL Server's multiple cascade paths through the post author.
             entity.HasOne<ApplicationUser>().WithMany()
                 .HasForeignKey(like => like.UserId).OnDelete(DeleteBehavior.NoAction);
+        });
         builder.Entity<Exercise>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(120).IsRequired();
@@ -140,6 +145,8 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<WorkoutPlan>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.TrainingLocation).HasMaxLength(60);
+            entity.Property(x => x.Equipment).HasMaxLength(500);
             entity.HasIndex(x => new { x.UserId, x.CreatedAt });
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -148,6 +155,30 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(x => new { x.WorkoutPlanId, x.Order });
             entity.HasOne(x => x.WorkoutPlan).WithMany(x => x.Exercises).HasForeignKey(x => x.WorkoutPlanId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.Exercise).WithMany(x => x.PlanExercises).HasForeignKey(x => x.ExerciseId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<WorkoutPlanExerciseResult>(entity =>
+        {
+            entity.HasIndex(x => new { x.UserId, x.StartedAt });
+            entity.HasIndex(x => new { x.WorkoutPlanId, x.WorkoutPlanExerciseId, x.StartedAt });
+            entity.Property(x => x.FeedbackJson).HasMaxLength(4000);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.WorkoutPlan).WithMany(x => x.ExerciseResults)
+                .HasForeignKey(x => x.WorkoutPlanId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.WorkoutPlanExercise).WithMany(x => x.Results)
+                .HasForeignKey(x => x.WorkoutPlanExerciseId).OnDelete(DeleteBehavior.NoAction);
+        });
+        builder.Entity<ActivitySession>(entity =>
+        {
+            entity.Property(x => x.ActivityType).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.RouteJson).HasColumnType("nvarchar(max)");
+            entity.HasIndex(x => new { x.UserId, x.StartedAt });
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<DailyActivityGoal>(entity =>
+        {
+            entity.HasKey(x => new { x.UserId, x.Date });
+            entity.Property(x => x.DistanceGoalKm).HasPrecision(10, 2);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<PlanAppointment>(entity =>
         {
