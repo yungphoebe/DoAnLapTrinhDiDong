@@ -56,3 +56,15 @@ app.*.map.json
 .artifacts/
 backend/AiGym.Api/.local/
 *.patch
+
+# Local credentials and signing material (never required by the unsigned CI).
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.mobileprovision
+*.ipa
+*.key
+**/secrets.json
+__pycache__/

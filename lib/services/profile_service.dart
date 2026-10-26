@@ -93,8 +93,8 @@ class ProfileService extends ChangeNotifier {
       'id': id,
       'startedAt': startedAt.toUtc().toIso8601String(),
       'durationSeconds': durationSeconds,
-      if (exercises != null) 'exercises': exercises,
-      if (feedbackCounts != null) 'feedbackCounts': feedbackCounts,
+      'exercises': ?exercises,
+      'feedbackCounts': ?feedbackCounts,
     }, includeAuth: true);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(

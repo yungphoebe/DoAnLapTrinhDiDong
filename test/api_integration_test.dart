@@ -13,6 +13,14 @@ void main() {
     expect(client.baseUrl, 'http://localhost:5129');
   });
 
+  test('ApiClient attaches a bearer token only to authenticated requests', () {
+    final client = ApiClient(baseUrl: 'https://example.com');
+    client.token = 'jwt-value';
+
+    expect(client.headers()['Authorization'], isNull);
+    expect(client.headers(includeAuth: true)['Authorization'], 'Bearer jwt-value');
+  });
+
   test('AuthResponse parses JWT auth payload', () {
     final auth = AuthResponse.fromJson({
       'token': 'token-123',

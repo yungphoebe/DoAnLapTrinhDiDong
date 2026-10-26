@@ -25,12 +25,35 @@ public sealed class LmStudioServiceTests
         Assert.Equal("Xin chào!\nHãy khởi động trước khi tập.", reply);
         Assert.Equal("/api/v1/chat", handler.Uri!.AbsolutePath);
         using var body = JsonDocument.Parse(handler.Body!);
-        Assert.Equal("off", body.RootElement.GetProperty("reasoning").GetString());
+        Assert.False(body.RootElement.TryGetProperty("reasoning", out _));
         Assert.False(body.RootElement.GetProperty("stream").GetBoolean());
         Assert.False(body.RootElement.GetProperty("store").GetBoolean());
         Assert.Equal("qwen/qwen3.5-9b", body.RootElement.GetProperty("model").GetString());
         Assert.Equal("Bài tập nào?", body.RootElement.GetProperty("input").GetString());
         Assert.Contains("Mục tiêu: tăng cơ", body.RootElement.GetProperty("system_prompt").GetString());
+        Assert.Equal(256, body.RootElement.GetProperty("max_output_tokens").GetInt32());
+    }
+
+    [Fact]
+    public async Task Chat_UsesRequestedOutputTokenLimit()
+    {
+        using var handler = new ResponseHandler(
+            """{"output":[{"type":"message","content":"{}"}]}""");
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234/v1/")
+        };
+        var service = new LmStudioService(
+            client,
+            OptionsFactory.Create(new LmStudioOptions()));
+
+        await service.ChatAsync(
+            "Create a workout plan",
+            CancellationToken.None,
+            maxOutputTokens: 1024);
+
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.Equal(1024, body.RootElement.GetProperty("max_output_tokens").GetInt32());
     }
 
     [Theory]

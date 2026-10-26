@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+import '../config/ai_config.dart';
 import '../services/camera_capture.dart';
 import '../services/lm_studio_service.dart';
 import '../services/workout_analysis.dart';
@@ -34,7 +35,7 @@ class _CameraScreenState extends State<CameraScreen>
   Future<Uint8List>? _captureTask;
   Timer? _timer;
   String? _cameraError;
-  String _model = const String.fromEnvironment('LM_STUDIO_VISION_MODEL');
+  String _model = AIConfig.visionModelId;
   int _cameraIndex = 0;
   int _cameraGeneration = 0;
   int _ticks = 0;
@@ -393,6 +394,32 @@ class _CameraScreenState extends State<CameraScreen>
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (widget.exercise != null) ...[
+                GymCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ngày ${widget.exercise!.dayNumber} · '
+                        '${widget.exercise!.sets} hiệp × ${widget.exercise!.reps} lần'
+                        '${widget.exercise!.targetSeconds == null ? '' : ' / ${widget.exercise!.targetSeconds} giây'}'
+                        ' · nghỉ ${widget.exercise!.restSeconds} giây',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      if (widget.exercise!.muscleGroup != null)
+                        Text('Nhóm cơ: ${widget.exercise!.muscleGroup}'),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Thiết bị này chỉ gửi ảnh tĩnh cho AI nhận xét. '
+                        'Chưa có bộ nhận diện pose để đếm lần/hiệp; '
+                        'phiên này sẽ không đánh dấu bài trong lịch là hoàn thành.',
+                        style: TextStyle(color: Colors.orangeAccent, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (!_opening &&
                   _cameraError == null &&
                   camera?.value.isInitialized == true)

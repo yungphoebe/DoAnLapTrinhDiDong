@@ -36,23 +36,26 @@ void main() {
     imageBytes: Uint8List.fromList([1, 2, 3]),
   );
 
-  test('image request disables reasoning and storage and returns only final feedback', () async {
-    response = {
-      'output': [
-        {'type': 'reasoning', 'content': 'internal thoughts'},
-        {'type': 'message', 'content': ' Giữ toàn thân trong khung hình. '},
-      ],
-    };
-    expect(await analyze(), 'Giữ toàn thân trong khung hình.');
-    expect(path, '/api/v1/chat');
-    expect(body['model'], 'vision');
-    expect(body['reasoning'], 'off');
-    expect(body['store'], isFalse);
-    expect(body['input'], [
-      {'type': 'text', 'content': 'Quan sát tư thế'},
-      {'type': 'image', 'data_url': 'data:image/jpeg;base64,AQID'},
-    ]);
-  });
+  test(
+    'image request disables storage and returns the final feedback',
+    () async {
+      response = {
+        'output': [
+          {'type': 'reasoning', 'content': 'internal thoughts'},
+          {'type': 'message', 'content': ' Giữ toàn thân trong khung hình. '},
+        ],
+      };
+      expect(await analyze(), 'Giữ toàn thân trong khung hình.');
+      expect(path, '/api/v1/chat');
+      expect(body['model'], 'vision');
+      expect(body.containsKey('reasoning'), isFalse);
+      expect(body['store'], isFalse);
+      expect(body['input'], [
+        {'type': 'text', 'content': 'Quan sát tư thế'},
+        {'type': 'image', 'data_url': 'data:image/jpeg;base64,AQID'},
+      ]);
+    },
+  );
 
   test(
     'reasoning-only response cannot be displayed as exercise advice',

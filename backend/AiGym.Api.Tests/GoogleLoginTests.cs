@@ -70,6 +70,47 @@ public sealed class GoogleLoginTests
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/auth/google", new { idToken = "valid" })).StatusCode);
     }
 
+    [Fact]
+    public async Task GoogleSession_CanSaveActivityAndWorkout_WithoutSharingAnotherAccountsHistory()
+    {
+        using var factory = new ApiFactory();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            s.Configure<GoogleAuthOptions>(o => o.ClientId = ClientId);
+            s.AddSingleton<IGoogleTokenVerifier>(new FakeVerifier());
+        }));
+        using var client = app.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/google", new { idToken = "valid" });
+        response.EnsureSuccessStatusCode();
+        var auth = await response.Content.ReadFromJsonAsync<JsonElement>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.GetProperty("token").GetString());
+        var activityId = Guid.NewGuid();
+        var activity = await client.PostAsJsonAsync("/api/activity/sessions", new
+        {
+            id = activityId, activityType = "walking", startedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+            durationSeconds = 600, steps = 800, distanceMeters = 600, completed = true, distanceEstimated = true
+        });
+        Assert.Equal(HttpStatusCode.Created, activity.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/profile/workouts", new
+        {
+            id = Guid.NewGuid(), durationSeconds = 120, startedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        })).StatusCode);
+        var sessions = await client.GetFromJsonAsync<JsonElement>("/api/activity/sessions");
+        Assert.Equal(activityId, sessions[0].GetProperty("id").GetGuid());
+        var again = await client.PostAsJsonAsync("/api/auth/google", new { idToken = "valid" });
+        again.EnsureSuccessStatusCode();
+        Assert.Equal(auth.GetProperty("userId").GetString(), (await again.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("userId").GetString());
+        using var other = app.CreateClient();
+        var register = await other.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "Other user", email = "other-activity@example.com", password = "123123123Az!"
+        });
+        register.EnsureSuccessStatusCode();
+        var otherAuth = await register.Content.ReadFromJsonAsync<JsonElement>();
+        other.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", otherAuth.GetProperty("token").GetString());
+        Assert.Equal(0, (await other.GetFromJsonAsync<JsonElement>("/api/activity/sessions")).GetArrayLength());
+    }
+
     [Theory]
     [InlineData("valid")]
     [InlineData("wrong-audience")]

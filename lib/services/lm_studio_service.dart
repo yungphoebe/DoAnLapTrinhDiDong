@@ -18,11 +18,12 @@ class LMStudioService {
       'Authorization': 'Bearer $apiToken',
   };
 
-  /// Uses LM Studio's native reasoning control for short camera feedback.
+  /// Uses LM Studio's native image endpoint for vision-model compatibility.
   Future<String> analyzeImage({
     required String modelId,
     required String prompt,
     required Uint8List imageBytes,
+    String imageMimeType = 'image/jpeg',
   }) async {
     final serverUrl = baseUrl.replaceFirst(RegExp(r'/v1$'), '');
     final response = await http
@@ -36,10 +37,9 @@ class LMStudioService {
               {
                 'type': 'image',
                 'data_url':
-                    'data:image/jpeg;base64,${base64Encode(imageBytes)}',
+                    'data:$imageMimeType;base64,${base64Encode(imageBytes)}',
               },
             ],
-            'reasoning': 'off',
             'store': false,
             'stream': false,
             'temperature': 0.2,
@@ -67,7 +67,7 @@ class LMStudioService {
     if (messages.isEmpty) {
       throw Exception(
         'LM Studio chưa trả về phản hồi hình ảnh. '
-        'Kiểm tra model vision và chế độ reasoning.',
+        'Kiểm tra model vision và dữ liệu ảnh.',
       );
     }
     return messages;

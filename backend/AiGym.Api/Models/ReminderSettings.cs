@@ -6,6 +6,9 @@ public sealed class ReminderSettings
     public bool WorkoutEnabled { get; set; }
     public int WorkoutMinute { get; set; } = 1080;
     public string WorkoutDays { get; set; } = "1,2,3,4,5,6,7";
+    public bool RunningEnabled { get; set; }
+    public int RunningMinute { get; set; } = 420;
+    public string RunningDays { get; set; } = "1,2,3,4,5,6,7";
     public bool WaterEnabled { get; set; }
     public int WaterStartMinute { get; set; } = 540;
     public int WaterEndMinute { get; set; } = 1260;
@@ -17,5 +20,5 @@ public sealed class ReminderSettings
     public long Revision { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastProcessedUtc { get; set; } = DateTime.UtcNow;
-    public bool Enabled(string kind) => kind switch { "workout" => WorkoutEnabled, "water" => WaterEnabled, "weekly" => WeeklyEnabled, _ => false };
+    public bool Enabled(string kind) => kind switch { "workout" => WorkoutEnabled, "running" => RunningEnabled, "water" => WaterEnabled, "weekly" => WeeklyEnabled, _ => false };
 }

@@ -19,6 +19,7 @@ void main() {
         ),
       );
       await tester.scrollUntilVisible(find.text('Cài đặt AI Coach'), 300);
+      expect(find.text('Cài đặt AI Coach'), findsOneWidget);
       await tester.tap(find.text('Cài đặt AI Coach'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Nữ nhẹ nhàng'));
