@@ -12,11 +12,13 @@ public static class ReminderSchedule
         var first = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc), zone).Date;
         var last = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(toUtc, DateTimeKind.Utc), zone).Date;
         var days = settings.WorkoutDays.Split(',').Select(int.Parse).ToHashSet();
+        var runningDays = settings.RunningDays.Split(',').Select(int.Parse).ToHashSet();
         for (var date = first; date <= last; date = date.AddDays(1))
         {
             var day = date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek;
             var slots = new List<(string Kind, int Minute)>();
             if (settings.WorkoutEnabled && days.Contains(day)) slots.Add(("workout", settings.WorkoutMinute));
+            if (settings.RunningEnabled && runningDays.Contains(day)) slots.Add(("running", settings.RunningMinute));
             if (settings.WeeklyEnabled && day == settings.WeeklyDay) slots.Add(("weekly", settings.WeeklyMinute));
             if (settings.WaterEnabled && settings.WaterIntervalMinutes >= 60)
                 for (var minute = settings.WaterStartMinute; minute <= settings.WaterEndMinute; minute += settings.WaterIntervalMinutes)
@@ -39,6 +41,7 @@ public static class ReminderSchedule
         "workout" when completedToday => ("GYM BUDDY chúc mừng!", "Hôm nay bạn đã tập rồi! Giỏi lắm, dành thời gian nghỉ ngơi và hồi phục nhé."),
         "workout" when roast => ("GYM BUDDY đang réo", "Đừng để chiếc ghế thắng bạn! Lướt điện thoại đủ rồi, dậy tập 5 phút coi."),
         "workout" => ("GYM BUDDY nhắc bạn", "Đến giờ tập rồi! Bắt đầu với 5 phút nhé. Bot luôn cổ vũ bạn!"),
+        "running" => ("Đến giờ chạy bộ", "Đã đến giờ đi bộ/chạy bộ. Chạm để mở phần theo dõi vận động."),
         "water" => ("Nhắc uống nước", "Đến giờ nghỉ một chút và uống nước. Chạm để xem lịch nhắc."),
         _ => ("Báo cáo tuần", "Nhìn lại tuần vừa qua. Chạm để mở báo cáo tuần.")
     };

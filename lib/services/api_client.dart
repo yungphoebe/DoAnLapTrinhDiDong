@@ -40,6 +40,12 @@ class ApiClient {
   }
 
   Map<String, String> headers({bool includeAuth = false}) {
+    if (includeAuth && token != null && token!.isNotEmpty) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+    }
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (includeAuth && token != null && token!.isNotEmpty) {
       headers['Authorization'] = 'Bearer ${token!}';

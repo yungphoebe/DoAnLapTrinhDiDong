@@ -139,6 +139,50 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
                   ),
                   const Divider(),
                   SwitchListTile(
+                    title: const Text('Nhắc chạy bộ'),
+                    subtitle: const Text('Thông báo theo ngày và giờ đã chọn.'),
+                    value: s.runningEnabled,
+                    onChanged: c.saving
+                        ? null
+                        : (v) => setState(
+                            () => _draft = s.copyWith(runningEnabled: v),
+                          ),
+                  ),
+                  ListTile(
+                    title: const Text('Giờ chạy bộ'),
+                    trailing: Text(s.runningTime),
+                    onTap: () => _time(
+                      s.runningTime,
+                      (v) => _draft = s.copyWith(runningTime: v),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 5,
+                    children: [
+                      for (var day = 1; day <= 7; day++)
+                        FilterChip(
+                          label: Text(day == 7 ? 'CN' : 'T${day + 1}'),
+                          selected: s.runningDays.contains(day),
+                          onSelected: (selected) {
+                            final days = [...s.runningDays];
+                            if (selected) {
+                              days.add(day);
+                            } else {
+                              days.remove(day);
+                            }
+                            if (days.isNotEmpty) {
+                              setState(
+                                () => _draft = s.copyWith(
+                                  runningDays: days..sort(),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                  const Divider(),
+                  SwitchListTile(
                     title: const Text('Nhắc uống nước'),
                     value: s.waterEnabled,
                     onChanged: c.saving

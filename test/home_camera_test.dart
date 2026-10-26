@@ -318,6 +318,7 @@ class FakeVision extends LMStudioService {
     required String modelId,
     required String prompt,
     required Uint8List imageBytes,
+    String imageMimeType = 'image/jpeg',
   }) async {
     received = imageBytes;
     requests++;

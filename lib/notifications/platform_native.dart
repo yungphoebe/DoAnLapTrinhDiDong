@@ -105,6 +105,11 @@ class NativeNotificationPlatform implements NotificationPlatform {
         slots.add(('workout', day, minutes(settings.workoutTime)));
       }
     }
+    if (settings.runningEnabled) {
+      for (final day in settings.runningDays) {
+        slots.add(('running', day, minutes(settings.runningTime)));
+      }
+    }
     if (settings.weeklyEnabled) {
       slots.add(('weekly', settings.weeklyDay, minutes(settings.weeklyTime)));
     }
@@ -140,6 +145,7 @@ class NativeNotificationPlatform implements NotificationPlatform {
       }
       final base = switch (kind) {
         'workout' => 100000,
+        'running' => 400000,
         'water' => 200000,
         _ => 300000,
       };
@@ -148,6 +154,7 @@ class NativeNotificationPlatform implements NotificationPlatform {
         scheduledDate: at,
         title: switch (kind) {
           'workout' => 'GYM BUDDY nhắc bạn',
+          'running' => 'Đến giờ chạy bộ',
           'water' => 'Nhắc uống nước',
           _ => 'Báo cáo tuần',
         },
@@ -155,6 +162,7 @@ class NativeNotificationPlatform implements NotificationPlatform {
             ? scheduledWorkoutMessage(roast: settings.botRoastEnabled)
             : 'Chạm để mở ${switch (kind) {
               'workout' => 'lịch tập',
+              'running' => 'đi bộ & chạy bộ',
               'water' => 'lịch uống nước',
               _ => 'báo cáo tuần',
             }}.',

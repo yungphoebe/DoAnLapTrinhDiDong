@@ -17,15 +17,14 @@ class AuthResponse {
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) => AuthResponse(
-    token: (json['token'] ?? '').toString(),
-    userId: (json['userId'] ?? '').toString(),
-    email: (json['email'] ?? '').toString(),
-    fullName: (json['fullName'] ?? '').toString(),
-    role: (json['role'] ?? '').toString(),
-    expiresAt:
-        DateTime.tryParse((json['expiresAt'] ?? '').toString()) ??
-        DateTime.now(),
-  );
+        token: (json['token'] ?? '').toString(),
+        userId: (json['userId'] ?? '').toString(),
+        email: (json['email'] ?? '').toString(),
+        fullName: (json['fullName'] ?? '').toString(),
+        role: (json['role'] ?? '').toString(),
+        expiresAt: DateTime.tryParse((json['expiresAt'] ?? '').toString()) ??
+            DateTime.now(),
+      );
 
   final String token;
   final String userId;
@@ -35,13 +34,13 @@ class AuthResponse {
   final DateTime expiresAt;
 
   Map<String, dynamic> toJson() => {
-    'token': token,
-    'userId': userId,
-    'email': email,
-    'fullName': fullName,
-    'role': role,
-    'expiresAt': expiresAt.toUtc().toIso8601String(),
-  };
+        'token': token,
+        'userId': userId,
+        'email': email,
+        'fullName': fullName,
+        'role': role,
+        'expiresAt': expiresAt.toUtc().toIso8601String(),
+      };
 }
 
 class AuthService {
@@ -55,6 +54,13 @@ class AuthService {
       'email': email.trim(),
       'password': password,
     });
+    return _handleAuthResponse(response);
+  }
+
+  Future<AuthResponse> loginWithGoogle(String idToken) async {
+    final response = await ApiClient.instance.post('/api/auth/google', {
+      'idToken': idToken,
+    }).timeout(const Duration(seconds: 30));
     return _handleAuthResponse(response);
   }
 

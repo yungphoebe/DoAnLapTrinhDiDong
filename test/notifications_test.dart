@@ -149,9 +149,13 @@ void main() {
     () {
       const settings = ReminderSettings();
       expect(settings.workoutEnabled, isFalse);
+      expect(settings.runningEnabled, isFalse);
       expect(settings.waterEnabled, isFalse);
       expect(settings.weeklyEnabled, isFalse);
       final edited = settings.copyWith(
+        runningEnabled: true,
+        runningTime: '06:30',
+        runningDays: const [2, 4, 6],
         waterEnabled: true,
         waterIntervalMinutes: 180,
       );
@@ -159,6 +163,9 @@ void main() {
       expect(restored.waterEnabled, isTrue);
       expect(restored.waterIntervalMinutes, 180);
       expect(restored.workoutTime, '18:00');
+      expect(restored.runningEnabled, isTrue);
+      expect(restored.runningTime, '06:30');
+      expect(restored.runningDays, [2, 4, 6]);
     },
   );
   test('notification links use only recognized destinations', () {
@@ -169,6 +176,10 @@ void main() {
     expect(
       NotificationLink(owner: 'a', kind: 'water').route,
       startsWith('/water'),
+    );
+    expect(
+      NotificationLink(owner: 'a', kind: 'running').route,
+      '/activity',
     );
     expect(
       NotificationLink(owner: 'a', kind: 'weekly').route,

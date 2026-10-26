@@ -7,6 +7,12 @@ class Exercise {
     required this.reps,
     required this.restSeconds,
     required this.level,
+    this.catalogId,
+    this.targetSeconds,
+    this.dayNumber = 1,
+    this.muscleGroup,
+    this.planId,
+    this.planExerciseId,
   });
 
   final String id;
@@ -16,6 +22,12 @@ class Exercise {
   final int reps;
   final int restSeconds;
   final String level;
+  final int? catalogId;
+  final int? targetSeconds;
+  final int dayNumber;
+  final String? muscleGroup;
+  final String? planId;
+  final String? planExerciseId;
 }
 
 class WorkoutPlan {

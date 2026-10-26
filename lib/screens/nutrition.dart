@@ -57,13 +57,13 @@ class _NutritionScreenState extends State<NutritionScreen> {
   }
 
   Future<void> _pick(ImageSource source) async {
-    final file = await _picker.pickImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 1600,
-    );
-    if (file == null) return;
     try {
+      final file = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (file == null) return;
       final bytes = await file.readAsBytes();
       if (!mounted) return;
       setState(() {
@@ -81,7 +81,8 @@ class _NutritionScreenState extends State<NutritionScreen> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = 'Không thể phân tích ảnh: ${_errorText(error)}',
+          () => _error =
+              'Không thể chọn hoặc phân tích ảnh: ${_errorText(error)}',
         );
       }
     } finally {

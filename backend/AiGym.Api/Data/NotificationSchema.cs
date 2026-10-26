@@ -9,11 +9,19 @@ public static class NotificationSchema
         CREATE TABLE dbo.ReminderSettings (
           UserId nvarchar(450) NOT NULL PRIMARY KEY REFERENCES dbo.AspNetUsers(Id) ON DELETE CASCADE,
           WorkoutEnabled bit NOT NULL, WorkoutMinute int NOT NULL, WorkoutDays nvarchar(20) NOT NULL,
+          RunningEnabled bit NOT NULL DEFAULT 0, RunningMinute int NOT NULL DEFAULT 420,
+          RunningDays nvarchar(20) NOT NULL DEFAULT '1,2,3,4,5,6,7',
           WaterEnabled bit NOT NULL, WaterStartMinute int NOT NULL, WaterEndMinute int NOT NULL, WaterIntervalMinutes int NOT NULL,
           WeeklyEnabled bit NOT NULL, WeeklyDay int NOT NULL, WeeklyMinute int NOT NULL, TimeZone nvarchar(100) NOT NULL,
           Revision bigint NOT NULL, UpdatedAt datetime2 NOT NULL, LastProcessedUtc datetime2 NOT NULL);
         IF COL_LENGTH(N'dbo.ReminderSettings', N'BotRoastEnabled') IS NULL
           ALTER TABLE dbo.ReminderSettings ADD BotRoastEnabled bit NOT NULL CONSTRAINT DF_ReminderSettings_BotRoastEnabled DEFAULT 0;
+        IF COL_LENGTH(N'dbo.ReminderSettings', N'RunningDays') IS NULL
+          ALTER TABLE dbo.ReminderSettings ADD RunningDays nvarchar(20) NOT NULL DEFAULT '1,2,3,4,5,6,7';
+        IF COL_LENGTH(N'dbo.ReminderSettings', N'RunningEnabled') IS NULL
+          ALTER TABLE dbo.ReminderSettings ADD RunningEnabled bit NOT NULL DEFAULT 0;
+        IF COL_LENGTH(N'dbo.ReminderSettings', N'RunningMinute') IS NULL
+          ALTER TABLE dbo.ReminderSettings ADD RunningMinute int NOT NULL DEFAULT 420;
         IF OBJECT_ID(N'dbo.UserNotifications', N'U') IS NULL
         BEGIN
           CREATE TABLE dbo.UserNotifications (

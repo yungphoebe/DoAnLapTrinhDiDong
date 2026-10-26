@@ -18,7 +18,10 @@ public sealed class LmStudioService : ILmStudioService
     }
 
     public async Task<string> ChatAsync(
-        string message, CancellationToken cancellationToken, string? context = null)
+        string message,
+        CancellationToken cancellationToken,
+        string? context = null,
+        int maxOutputTokens = 256)
     {
         var systemPrompt = "Ban la tro ly AI GYM. Tra loi bang tieng Viet, toi da 100 tu, " +
             "di thang vao cau hoi, khong lap lai ho so. Dung kien thuc tap luyen an toan de goi y. " +
@@ -29,12 +32,10 @@ public sealed class LmStudioService : ILmStudioService
             model = _options.Model,
             system_prompt = systemPrompt,
             input = message,
-            // Prevent reasoning from consuming the entire answer budget.
-            reasoning = "off",
             store = false,
             stream = false,
             temperature = 0.7,
-            max_output_tokens = 256
+            max_output_tokens = maxOutputTokens
         };
 
         using var response = await _httpClient.PostAsJsonAsync(

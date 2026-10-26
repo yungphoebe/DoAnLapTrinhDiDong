@@ -8,6 +8,7 @@ import 'screens/friends_competition.dart';
 import 'screens/pose_camera.dart';
 import 'screens/workout_history.dart';
 import 'screens/workout_plans.dart';
+import 'screens/activity.dart';
 import 'screens/onboarding.dart';
 import 'screens/reset_password.dart';
 import 'screens/settings.dart';
@@ -65,6 +66,7 @@ class MainApp extends StatelessWidget {
       '/home': (_) => const AppShell(),
       '/workout-history': (_) => const WorkoutHistoryScreen(),
       '/workout-plans': (_) => const WorkoutPlansScreen(),
+      '/activity': (_) => const ActivityScreen(),
       '/settings': (_) => const SettingsScreen(),
       '/training-bot': (_) => const TrainingBotScreen(),
       '/nutrition': (_) => const NutritionScreen(),

@@ -2,6 +2,8 @@ using AiGym.Api.Data;
 using AiGym.Api.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace AiGym.Api.Services;
 
@@ -15,21 +17,41 @@ public static class DatabaseSeeder
     {
         using var scope = services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await context.Database.EnsureCreatedAsync();
+        if (context.Database.IsSqlServer())
+        {
+            // Older releases created only the initial schema with EnsureCreated,
+            // so those databases have no migration history. Adopt that baseline
+            // before applying the later migrations; never swallow SQL failures.
+            if (await context.Database.CanConnectAsync())
+            {
+                var history = context.GetService<IHistoryRepository>();
+                await context.Database.ExecuteSqlRawAsync(history.GetCreateIfNotExistsScript());
+                await context.Database.ExecuteSqlRawAsync("""
+                    IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory)
+                        AND OBJECT_ID(N'dbo.AspNetUsers', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.AspNetRoles', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.AspNetRoleClaims', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.AspNetUserClaims', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.AspNetUserLogins', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.AspNetUserRoles', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.AspNetUserTokens', N'U') IS NOT NULL
+                        AND OBJECT_ID(N'dbo.Posts', N'U') IS NOT NULL
+                        AND COL_LENGTH(N'dbo.AspNetUsers', N'Age') IS NULL
+                    INSERT INTO dbo.__EFMigrationsHistory (MigrationId, ProductVersion)
+                        VALUES (N'20261012153011_InitialCreate', N'9.0.10');
+                    """);
+            }
+            await context.Database.MigrateAsync();
+        }
+        else
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
         await PostLikesSchema.EnsureAsync(context);
         await CommentSchema.EnsureAsync(context);
         await NotificationSchema.EnsureAsync(context);
         await SupportSchema.EnsureAsync(context);
         await ChallengeSchema.EnsureAsync(context);
-        try
-        {
-            if (context.Database.IsRelational())
-                await context.Database.MigrateAsync();
-        }
-        catch (Microsoft.Data.SqlClient.SqlException)
-        {
-            // Tables already created by EnsureCreatedAsync
-        }
 
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         foreach (var role in new[] { "Admin", "User" })

@@ -551,18 +551,18 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && mounted && context.mounted) {
       setState(() => _loading = true);
       try {
         await widget.store.quitChallenge(ac);
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(widget.store.lastNotification ?? 'Đã từ bỏ thử thách.'),
           backgroundColor: Colors.white24,
           behavior: SnackBarBehavior.floating,
         ));
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(e is ApiException ? e.message : e.toString()),
           backgroundColor: Colors.redAccent,

@@ -19,11 +19,12 @@ hoặc thoát màn hình, camera được giải phóng. Phiên chưa lưu vào 
 ## LM Studio
 
 1. Tải model hỗ trợ đầu vào hình ảnh (vision) và bật API server trong LM Studio.
-   Camera dùng API native `/api/v1/chat`, tắt reasoning cho phản hồi ngắn và
-   đặt `store: false`. Cần phiên bản LM Studio có API này và model cho phép tắt
-   reasoning; đã thử với `qwen/qwen3.5-9b`. Luồng chat văn bản hiện có giữ nguyên.
-2. Nhập đúng ID model ở ô **Model hình ảnh (LM Studio)**; nếu để trống, dùng model
-   đầu tiên server trả về. Model chỉ xử lý văn bản sẽ không phân tích được ảnh.
+   Camera dùng API native `/api/v1/chat` và đặt `store: false`. Cần phiên bản
+   LM Studio có API này và model vision; đã thử với `qwen/qwen3-vl-2b`. Luồng
+   chat văn bản hiện có giữ nguyên.
+2. Model hình ảnh mặc định là `qwen/qwen3-vl-2b`; có thể nhập model ID khác ở ô
+   **Model hình ảnh (LM Studio)** hoặc cấu hình `LM_STUDIO_VISION_MODEL`.
+   Model chỉ xử lý văn bản sẽ không phân tích được ảnh.
 3. URL mặc định là `http://127.0.0.1:1234/v1`. Đổi qua `LM_STUDIO_URL` khi chạy.
    Có thể đặt sẵn ID qua `LM_STUDIO_VISION_MODEL`.
 
@@ -103,3 +104,32 @@ Các test ngoài phạm vi camera còn thất bại:
 
 Tham chiếu API: [camera Windows](https://pub.dev/packages/camera_windows),
 [LM Studio native chat](https://lmstudio.ai/docs/developer/rest/chat).
+
+## Lịch tập AI, pose và đi bộ/chạy
+
+- Màn **Kế hoạch và lịch tập** gửi mục tiêu, trình độ, số ngày, thời lượng,
+  địa điểm và dụng cụ tới `POST /api/workout-plans/proposal`. Backend chỉ chấp
+  nhận `exerciseId` có trong danh mục; JSON sai hoặc ID lạ bị từ chối. Xem/sửa
+  bản nháp trước khi lưu. Các trường `DayNumber`, hiệp, reps/thời lượng, nghỉ và
+  thứ tự được lưu thành dữ liệu quan hệ, không lưu như văn bản AI.
+- Khi bấm bắt đầu từ bài đã lưu, web truyền đúng tên động tác cùng mục tiêu hiệp,
+  reps và nghỉ sang `pose_camera.html`. Pose xử lý tại thiết bị, chỉ đếm đủ chu
+  kỳ và nghỉ giữa các hiệp; kết quả được lưu bằng ID plan/exercise. Bài không
+  được nhận diện sẽ không được đánh dấu hoàn thành.
+- Pose rule hiện có: Squat, chống đẩy, Jumping Jack, shoulder press và biceps
+  curl. Nhận diện cần toàn thân/khớp đủ rõ; các ngưỡng là heuristic, không phải
+  đánh giá y tế. Bài chạy từ lịch trên Android/Windows hiện chỉ có nhận xét ảnh,
+  không có pose detector native, reps hoặc hoàn thành lịch.
+- Màn **Đi bộ & chạy bộ** dùng `pedometer` trên nền tảng hỗ trợ và GPS nếu người
+  dùng cấp quyền. Bước được ghi theo buổi rồi cộng cho ngày, không cộng chồng dữ
+  liệu ngoài buổi; không có sensor thì bước là `không khả dụng`. Quãng đường chỉ
+  hiển thị khi có GPS, không ước lượng ngầm từ bước. Mục tiêu ngày và lịch sử
+  được lưu qua `/api/activity`.
+- Cần chạy migration backend trước khi sử dụng các trường kế hoạch/result và
+  bảng `ActivitySessions`, `DailyActivityGoals`. Dùng `flutter pub get` để cài
+  `geolocator`, `pedometer`, `permission_handler`. Android yêu cầu quyền
+  `ACTIVITY_RECOGNITION`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`;
+  iOS có `NSMotionUsageDescription` và
+  `NSLocationWhenInUseUsageDescription`. Web cần localhost/HTTPS; trình duyệt
+  có thể không có step sensor, khi đó ứng dụng báo giới hạn. Nhắc 30 phút hiện
+  hoạt động khi màn vận động đang mở, không phải thông báo nền.

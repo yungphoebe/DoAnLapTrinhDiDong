@@ -66,7 +66,11 @@ public sealed class CoachChatTests
 
     private sealed class TestAi(bool timeout) : ILmStudioService
     {
-        public Task<string> ChatAsync(string message, CancellationToken cancellationToken, string? context = null) =>
+        public Task<string> ChatAsync(
+            string message,
+            CancellationToken cancellationToken,
+            string? context = null,
+            int maxOutputTokens = 256) =>
             timeout ? throw new TaskCanceledException("Model timed out") : Task.FromResult("Goi y: chong day 3 hiep.");
     }
 }

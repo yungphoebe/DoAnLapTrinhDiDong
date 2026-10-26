@@ -26,15 +26,31 @@
   <div class="panel">
     <label for="exercise">Bài tập</label>
     <select id="exercise"><option value="auto">Tự nhận diện 3 bài cơ bản</option><option value="squat">Squat · quay ngang</option><option value="pushup">Chống đẩy · quay ngang</option><option value="jumpingJack">Jumping Jack · quay chính diện</option><option value="shoulderPress">Đẩy vai · quay chính diện</option><option value="bicepsCurl">Tập tay trước · quay ngang</option></select>
+    <p id="target" class="muted" hidden></p>
+    <p id="set-progress" aria-live="polite"></p>
     <p class="muted">Để thấy toàn thân và đủ sáng. Squat/chống đẩy/tay trước: quay ngang; Jumping Jack/đẩy vai: quay chính diện. Nếu khó phân biệt bài, chọn bài thủ công.</p>
     <div class="counts"><div class="count"><strong id="reps">0</strong><span>Reps hoàn thành</span></div><div class="count"><strong id="correct">0</strong><span>Đạt quy tắc</span></div><div class="count"><strong id="incorrect">0</strong><span>Có lỗi tư thế</span></div><div class="count"><strong id="time">00:00</strong><span>Thời gian hoạt động</span></div></div>
     <p id="feedback" aria-live="polite">Chưa có dữ liệu chuyển động.</p>
-    <label><input type="checkbox" id="voice"> Hướng dẫn giọng nói tiếng Việt</label>
-    <p id="voice-note" class="muted"></p>
+    <label><input type="checkbox" id="voice" checked> Hướng dẫn giọng nói tiếng Việt</label>
+    <button id="voice-test" type="button" aria-label="Nghe thử giọng nói tiếng Việt">Nghe thử tiếng Việt</button>
+    <p id="voice-note" class="muted" role="status"></p>
     <div class="actions"><button id="start" class="primary">Mở camera</button><button id="pause" disabled>Tạm dừng</button><button id="finish" disabled>Kết thúc & lưu</button></div>
     <p class="muted">Đánh giá theo góc khớp nhìn thấy, không phải kết luận an toàn y khoa. Mất dấu người sẽ ngừng đếm. Video được xử lý tại máy; chỉ kết quả phiên tập được lưu.</p>
   </div>
   <div id="result" class="panel" hidden><h2>Kết quả phiên tập</h2><p id="summary"></p><p id="save-status" role="status"></p><button id="retry" hidden>Thử lưu lại</button></div>
-  <script type="module" src="pose_camera.mjs"></script>
+  <script>
+    window.__aigymPoseReady = false;
+    window.addEventListener('message', event => {
+      if (event.origin !== location.origin || event.source !== window.parent ||
+          typeof event.data !== 'string') return;
+      let message;
+      try { message = JSON.parse(event.data); } catch (_) { return; }
+      if (message.type !== 'aigym:requestClose' || window.__aigymPoseReady) return;
+      document.querySelectorAll('video').forEach(video =>
+        video.srcObject?.getTracks().forEach(track => track.stop()));
+      window.parent.postMessage(JSON.stringify({type:'aigym:close'}), location.origin);
+    });
+  </script>
+  <script type="module" src="pose_camera.mjs?v=20261026-vi-audio"></script>
 </body>
 </html>
