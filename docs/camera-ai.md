@@ -1,5 +1,25 @@
 # Camera AI trên Android, Chrome và Windows
 
+## Cập nhật đếm rep trên điện thoại — 27/10/2026
+
+- Android/iOS dùng ML Kit tại thiết bị cho Squat, chống đẩy, Jumping Jack,
+  đẩy vai và tay trước. Bài mở từ lịch được chọn theo mã hoặc tên trong danh mục.
+- Đẩy vai đếm chu kỳ hạ tạ ngang vai, đẩy lên duỗi tay, hạ về ngang vai;
+  kiểm tra cả góc khuỷu và vị trí hai tay, không yêu cầu cổ tay hạ dưới vai.
+- Bài trong lịch có mục tiêu rep chỉ tính rep đúng vào tiến độ từng hiệp,
+  nghỉ giữa hiệp theo lịch, tự kết thúc sau hiệp cuối và lưu kết quả vào đúng
+  plan/exercise. Màn lịch tải lại và hiển thị **Đã tập xong** từ kết quả máy chủ.
+  Kết thúc sớm lưu tiến độ chưa hoàn thành; lỗi mạng có nút thử lưu lại cùng ID.
+- Mục tiêu theo thời lượng chưa được tự đánh dấu hoàn thành bằng số rep.
+  Bài chưa có quy tắc nhận diện được thông báo rõ; lỗi xử lý ảnh không bị ẩn.
+- Kiểm thử mô phỏng: `test/pose_rules_test.dart`, `test/pose_camera_mobile_test.dart`,
+  `test/workout_rep_progress_test.dart`, `test/workout_plan_completion_test.dart`
+  và `test/pose_rules_test.mjs`. Chưa xác nhận với camera iPhone vật lý;
+  thay đổi Flutter cần build/cài IPA mới để dùng trên điện thoại.
+
+Phần mô tả xử lý ảnh qua LM Studio bên dưới áp dụng cho màn camera ảnh cũ
+và Windows, không phải bộ đếm rep ML Kit trên điện thoại.
+
 Nút **Mở camera AI** và **Nhận diện Form** đều mở camera thật. Cho phép quyền
 camera, đặt thiết bị sao cho thấy rõ toàn thân, rồi chọn **Bắt đầu phân tích**.
 Ứng dụng không bật microphone. Có thể đổi camera nếu máy có nhiều camera.

@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:ai_gym/models/workout.dart';
 import 'package:ai_gym/screens/pose_camera_mobile.dart';
+import 'package:ai_gym/services/api_client.dart';
+import 'package:ai_gym/services/profile_service.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'helpers/fake_camera.dart';
 
@@ -188,5 +193,70 @@ void main() {
     expect(camera.opened, 0);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+      'reaching planned reps auto-saves completion and retries the same result',
+      (tester) async {
+    tester.view.physicalSize = const Size(480, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    ApiClient.instance.token = 'test-account';
+    addTearDown(() {
+      ApiClient.instance.token = null;
+      ProfileService.instance.clear();
+    });
+    final planWrites = <Map<String, dynamic>>[];
+    final client = MockClient((request) async {
+      if (request.url.path.endsWith('/results')) {
+        planWrites.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response('{}', planWrites.length == 1 ? 500 : 201);
+      }
+      return http.Response('{}', 200);
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+          home: MobilePoseCameraScreen(
+        exercise: Exercise(
+            id: 'catalog_42',
+            name: 'Đẩy vai',
+            description: '',
+            sets: 1,
+            reps: 1,
+            restSeconds: 0,
+            level: 'Cơ bản',
+            planId: 'plan-a',
+            planExerciseId: 'exercise-a'),
+      )));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Bắt đầu'));
+      await tester.tap(find.text('Bắt đầu'));
+      await tester.pump();
+      for (final up in [false, true, false]) {
+        extended = up;
+        for (var frame = 0; frame < 8; frame++) {
+          await tester.runAsync(() async {
+            camera.emit();
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          });
+          await tester.pump();
+        }
+      }
+      await tester.pumpAndSettle();
+      expect(planWrites, hasLength(1));
+      expect(planWrites.single['completed'], isTrue);
+      expect(planWrites.single['actualSets'], 1);
+      expect(planWrites.single['actualReps'], 1);
+      expect(find.text('Thử lưu lại'), findsOneWidget);
+      expect(find.text('Đã tập xong'), findsNothing);
+      await tester.tap(find.text('Thử lưu lại'));
+      await tester.pumpAndSettle();
+      expect(planWrites, hasLength(2));
+      expect(planWrites[1], planWrites[0]);
+      expect(find.text('Đã tập xong'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    }, () => client);
   });
 }

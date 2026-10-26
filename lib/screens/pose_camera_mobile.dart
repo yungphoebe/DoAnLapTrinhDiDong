@@ -10,6 +10,9 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../models/workout.dart';
 import '../services/coach_voice_service.dart';
 import '../services/pose_rules.dart';
+import '../services/api_client.dart';
+import '../services/workout_rep_progress.dart';
+import '../services/workout_service.dart';
 import '../services/profile_service.dart';
 import '../ui.dart';
 
@@ -39,6 +42,8 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
   PoseResult? _result;
   String? _error;
   String? _trackingError;
+  WorkoutRepProgress? _progress;
+  String? _sessionToken;
   String _mode = 'auto';
   DateTime? _startedAt;
   DateTime _spokenAt = DateTime(2000);
@@ -65,11 +70,24 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
     super.initState();
     _mode = _requestedMode ?? 'auto';
     _engine.setExercise(_mode);
+    final exercise = widget.exercise;
+    if (exercise?.planId != null &&
+        exercise?.planExerciseId != null &&
+        _requestedMode != null &&
+        exercise!.targetSeconds == null) {
+      _progress = WorkoutRepProgress(
+          exercise: _mode,
+          sets: exercise.sets,
+          repsPerSet: exercise.reps,
+          restSeconds: exercise.restSeconds);
+    }
     // Rotation is derived from the sensor only, so keep the device upright.
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     WidgetsBinding.instance.addObserver(this);
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && _running) setState(() {});
+      if (mounted && _running) {
+        setState(() {});
+      }
     });
     _openCamera();
   }
@@ -182,12 +200,17 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
           else
             null,
       ];
-      if (!_running) {
+      if (!_running || (_progress?.isResting(now) ?? false)) {
         setState(() {
           _points = points;
           _trackingError = null;
         });
         return;
+      }
+      // Resume before the first post-rest frame, never during a later UI tick.
+      if (!_elapsed.isRunning) {
+        _engine.resetMotion();
+        _elapsed.start();
       }
       final result = _engine.update(points, now, width: w, height: h);
       setState(() {
@@ -196,6 +219,20 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
         _trackingError = null;
       });
       _announce(result);
+      final progress = _progress;
+      if (progress != null && progress.update(result, now)) {
+        _engine.resetMotion();
+        if (progress.completed) {
+          unawaited(_finish());
+        } else {
+          if (progress.isResting(now)) _elapsed.stop();
+          if (_voiceOn) {
+            _say(
+                'Xong hiệp ${progress.completedSets}. Nghỉ ${progress.restSeconds} giây.',
+                force: true);
+          }
+        }
+      }
     } catch (_) {
       if (mounted && camera == _camera) {
         _showTrackingError(
@@ -245,9 +282,17 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
       _running = !_running;
       _engine.resetMotion();
       if (_running) {
-        _startedAt ??= DateTime.now().toUtc();
-        _elapsed.start();
+        if (_startedAt == null) {
+          _startedAt = DateTime.now().toUtc();
+          _sessionToken = ApiClient.instance.token;
+        }
+        _progress?.resume(DateTime.now().millisecondsSinceEpoch);
+        if (!(_progress?.isResting(DateTime.now().millisecondsSinceEpoch) ??
+            false)) {
+          _elapsed.start();
+        }
       } else {
+        _progress?.pause(DateTime.now().millisecondsSinceEpoch);
         _elapsed.stop();
       }
     });
@@ -277,23 +322,64 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
     }
     String? saveError;
     var saved = false;
+    var planSaved = false;
+    var profileSaved = false;
+    var saving = false;
+    final plannedExercise = widget.exercise;
+    final isPlanned = plannedExercise?.planId != null &&
+        plannedExercise?.planExerciseId != null;
     Future<void> save() async {
+      if (saving) return;
+      saving = true;
       try {
-        await ProfileService.instance.saveWorkout(
-          id: _sessionId,
-          startedAt: _startedAt!,
-          durationSeconds: seconds,
-          exercises: [for (final e in summary.exercises) e.toJson()],
-          feedbackCounts: summary.feedbackCounts,
-        );
+        if (_sessionToken == null ||
+            _sessionToken != ApiClient.instance.token) {
+          throw const FormatException('Account changed');
+        }
+        if (isPlanned && !planSaved) {
+          await WorkoutService()
+              .savePlanExerciseResult(
+                planId: plannedExercise!.planId!,
+                planExerciseId: plannedExercise.planExerciseId!,
+                id: _sessionId,
+                startedAt: _startedAt!,
+                durationSeconds: max(1, seconds),
+                actualSets: _progress?.completedSets ?? 0,
+                actualReps: _progress?.correctReps ?? 0,
+                completed: _progress?.completed ?? false,
+                feedbackCounts: summary.feedbackCounts,
+              )
+              .timeout(const Duration(seconds: 15));
+          planSaved = true;
+        }
+        if (!profileSaved) {
+          if (_sessionToken != ApiClient.instance.token) {
+            throw const FormatException('Account changed');
+          }
+          await ProfileService.instance
+              .saveWorkout(
+                id: _sessionId,
+                startedAt: _startedAt!,
+                durationSeconds: max(1, seconds),
+                exercises: [for (final e in summary.exercises) e.toJson()],
+                feedbackCounts: summary.feedbackCounts,
+              )
+              .timeout(const Duration(seconds: 15));
+          profileSaved = true;
+        }
         saved = true;
         saveError = null;
       } catch (_) {
         saveError = 'Chưa lưu được phiên tập. Kiểm tra kết nối và thử lại.';
+      } finally {
+        saving = false;
       }
     }
 
-    if (seconds > 0 && _startedAt != null) await save();
+    if (_startedAt != null &&
+        (seconds > 0 || (_progress?.completed ?? false))) {
+      await save();
+    }
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -306,7 +392,10 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Hoàn thành buổi tập',
+                Text(
+                    planSaved && (_progress?.completed ?? false)
+                        ? 'Đã tập xong'
+                        : 'Kết quả buổi tập',
                     style:
                         TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
@@ -316,7 +405,9 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
                       '${poseExerciseNames[e.exercise]}: ${e.reps} lần · ${e.correctReps} đạt · ${e.incorrectReps} có lỗi'),
                 const SizedBox(height: 12),
                 Text(saved
-                    ? 'Đã lưu vào tài khoản và cập nhật thử thách.'
+                    ? isPlanned && (_progress?.completed ?? false)
+                        ? 'Đã lưu kết quả và đánh dấu bài tập hoàn thành trong lịch.'
+                        : 'Đã lưu vào tài khoản và cập nhật thử thách.'
                     : saveError ?? 'Chưa có thời gian tập để lưu.'),
                 if (saveError != null)
                   TextButton(
@@ -335,7 +426,7 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
         ),
       ),
     );
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context, planSaved);
   }
 
   @override
@@ -383,13 +474,17 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
             : Colors.redAccent;
     final message = _trackingError != null
         ? _trackingError!
-        : !_running
-            ? 'Đặt máy để thấy toàn thân, rồi bấm Bắt đầu.'
-            : result == null
-                ? 'Đang nhận diện…'
-                : result.feedbackCodes.isNotEmpty
-                    ? result.feedback.join(' ')
-                    : 'Tốt lắm, tiếp tục động tác đủ biên độ.';
+        : _running &&
+                (_progress?.isResting(DateTime.now().millisecondsSinceEpoch) ??
+                    false)
+            ? 'Nghỉ ${_progress!.restRemaining(DateTime.now().millisecondsSinceEpoch)} giây trước hiệp tiếp theo.'
+            : !_running
+                ? 'Đặt máy để thấy toàn thân, rồi bấm Bắt đầu.'
+                : result == null
+                    ? 'Đang nhận diện…'
+                    : result.feedbackCodes.isNotEmpty
+                        ? result.feedback.join(' ')
+                        : 'Tốt lắm, tiếp tục động tác đủ biên độ.';
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -424,7 +519,9 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
               child: _error != null
                   ? Center(child: Text(_error!, textAlign: TextAlign.center))
                   : camera?.value.isInitialized != true
-                      ? const Center(child: CircularProgressIndicator())
+                      ? _finishing
+                          ? const Center(child: Text('Buổi tập đã dừng.'))
+                          : const Center(child: CircularProgressIndicator())
                       : Stack(
                           fit: StackFit.expand,
                           children: [
@@ -451,6 +548,13 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
               ],
             ),
             const SizedBox(height: 12),
+            if (_progress != null) ...[
+              Text(
+                  'Hiệp ${min(_progress!.completedSets + 1, _progress!.sets)}/${_progress!.sets} · '
+                  '${_progress!.repsInSet}/${_progress!.repsPerSet} rep đúng · '
+                  '${_progress!.completedSets} hiệp đã xong'),
+              const SizedBox(height: 8),
+            ],
             Text(message, style: TextStyle(fontSize: 16, color: state)),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -463,7 +567,8 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
                   DropdownMenuItem(
                       value: e, child: Text(poseExerciseNames[e]!)),
               ],
-              onChanged: _finishing ||
+              onChanged: _progress != null ||
+                      _finishing ||
                       _startedAt !=
                           null // backend accepts at most 3 exercises per session
                   ? null

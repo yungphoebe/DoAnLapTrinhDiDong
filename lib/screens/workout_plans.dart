@@ -78,7 +78,8 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
         sessionMinutes == null ||
         sessionMinutes < 10 ||
         sessionMinutes > 240) {
-      showMessage(context, 'Nhập mục tiêu, địa điểm và thời lượng 10–240 phút.');
+      showMessage(
+          context, 'Nhập mục tiêu, địa điểm và thời lượng 10–240 phút.');
       return;
     }
     setState(() {
@@ -116,25 +117,26 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
         _goal.text.trim().isEmpty ||
         _location.text.trim().isEmpty ||
         exercises.any((item) => (item['dayNumber'] as num).toInt() > _days)) {
-      showMessage(context, 'Kiểm tra lại mục tiêu, địa điểm, thời lượng và ngày tập.');
+      showMessage(
+          context, 'Kiểm tra lại mục tiêu, địa điểm, thời lượng và ngày tập.');
       return;
     }
     setState(() => _saving = true);
     try {
       final requestExercises = exercises
-            .map(
-              (item) => {
-                'id': item['id'],
-                'exerciseId': item['exerciseId'],
-                'dayNumber': item['dayNumber'],
-                'sets': item['sets'],
-                'reps': item['reps'],
-                'targetSeconds': item['targetSeconds'],
-                'restSeconds': item['restSeconds'],
-                'order': item['order'],
-              },
-            )
-            .toList();
+          .map(
+            (item) => {
+              'id': item['id'],
+              'exerciseId': item['exerciseId'],
+              'dayNumber': item['dayNumber'],
+              'sets': item['sets'],
+              'reps': item['reps'],
+              'targetSeconds': item['targetSeconds'],
+              'restSeconds': item['restSeconds'],
+              'order': item['order'],
+            },
+          )
+          .toList();
       final arguments = {
         'name': proposal['name']?.toString() ?? 'Kế hoạch cá nhân',
         'goal': _goal.text.trim(),
@@ -198,7 +200,8 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
                 initialValue: day,
                 decoration: const InputDecoration(labelText: 'Ngày tập'),
                 items: List.generate(_days, (index) => index + 1)
-                    .map((value) => DropdownMenuItem(value: value, child: Text('Ngày $value')))
+                    .map((value) => DropdownMenuItem(
+                        value: value, child: Text('Ngày $value')))
                     .toList(),
                 onChanged: (value) => updateDialog(() => day = value ?? day),
               ),
@@ -215,7 +218,8 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
               TextField(
                 controller: rest,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Nghỉ giữa hiệp (giây)'),
+                decoration:
+                    const InputDecoration(labelText: 'Nghỉ giữa hiệp (giây)'),
               ),
             ],
           ),
@@ -229,10 +233,17 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
                 final parsedSets = int.tryParse(sets.text);
                 final parsedReps = int.tryParse(reps.text);
                 final parsedRest = int.tryParse(rest.text);
-                if (parsedSets == null || parsedSets < 1 || parsedSets > 100 ||
-                    parsedReps == null || parsedReps < 1 || parsedReps > 1000 ||
-                    parsedRest == null || parsedRest < 0 || parsedRest > 3600) {
-                  showMessage(dialogContext, 'Mục tiêu hiệp/lần/nghỉ không hợp lệ.');
+                if (parsedSets == null ||
+                    parsedSets < 1 ||
+                    parsedSets > 100 ||
+                    parsedReps == null ||
+                    parsedReps < 1 ||
+                    parsedReps > 1000 ||
+                    parsedRest == null ||
+                    parsedRest < 0 ||
+                    parsedRest > 3600) {
+                  showMessage(
+                      dialogContext, 'Mục tiêu hiệp/lần/nghỉ không hợp lệ.');
                   return;
                 }
                 Navigator.pop(dialogContext, {
@@ -257,7 +268,8 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
         .map((value) => Map<String, dynamic>.from(value as Map))
         .toList();
     final index = exercises.indexWhere(
-      (value) => value['exerciseId'] == item['exerciseId'] &&
+      (value) =>
+          value['exerciseId'] == item['exerciseId'] &&
           value['order'] == item['order'],
     );
     if (index < 0) return;
@@ -284,13 +296,19 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
     );
   }
 
-  void _startExercise(Map<String, dynamic> plan, Map<String, dynamic> item) {
-    Navigator.pushNamed(
+  Future<void> _startExercise(
+      Map<String, dynamic> plan, Map<String, dynamic> item) async {
+    await Navigator.pushNamed(
       context,
       '/camera',
       arguments: _exerciseFor(plan, item),
     );
+    if (mounted) await _load();
   }
+
+  bool _exerciseCompleted(Map<String, dynamic> item) =>
+      (item['results'] as List<dynamic>? ?? [])
+          .any((result) => result['completed'] == true);
 
   void _editPlan(Map<String, dynamic> plan) {
     final exercises = (plan['exercises'] as List<dynamic>? ?? [])
@@ -312,133 +330,145 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: const CircleBackButton(),
-      title: const Text('Kế hoạch và lịch tập'),
-      actions: [
-        IconButton(
-          tooltip: 'Lịch nhắc chạy bộ',
-          onPressed: () => Navigator.pushNamed(context, '/reminder-settings'),
-          icon: const Icon(Icons.notifications_active_outlined),
-        ),
-        IconButton(
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
-    body: _loading
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
-            onRefresh: _load,
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                if (_error != null)
-                  Text(_error!, style: const TextStyle(color: Colors.orange)),
-                if (_weekly != null) _weeklyCard(),
-                const SizedBox(height: 14),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/activity'),
-                  icon: const Icon(Icons.directions_walk),
-                  label: const Text('Theo dõi đi bộ / chạy bộ'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/reminder-settings'),
-                  icon: const Icon(Icons.alarm),
-                  label: const Text('Cài lịch nhắc chạy bộ'),
-                ),
-                const SizedBox(height: 14),
-                _planInputs(),
-                const SizedBox(height: 14),
-                if (_proposal != null) _proposalCard(),
-                if (_plans.isEmpty)
-                  const GymCard(
-                    child: Text('Chưa có kế hoạch. Hãy tạo lịch tập đầu tiên.'),
-                  )
-                else
-                  ..._plans.map(_planCard),
-              ],
+        appBar: AppBar(
+          leading: const CircleBackButton(),
+          title: const Text('Kế hoạch và lịch tập'),
+          actions: [
+            IconButton(
+              tooltip: 'Lịch nhắc chạy bộ',
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/reminder-settings'),
+              icon: const Icon(Icons.notifications_active_outlined),
             ),
-          ),
-  );
+            IconButton(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    if (_error != null)
+                      Text(_error!,
+                          style: const TextStyle(color: Colors.orange)),
+                    if (_weekly != null) _weeklyCard(),
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/activity'),
+                      icon: const Icon(Icons.directions_walk),
+                      label: const Text('Theo dõi đi bộ / chạy bộ'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/reminder-settings'),
+                      icon: const Icon(Icons.alarm),
+                      label: const Text('Cài lịch nhắc chạy bộ'),
+                    ),
+                    const SizedBox(height: 14),
+                    _planInputs(),
+                    const SizedBox(height: 14),
+                    if (_proposal != null) _proposalCard(),
+                    if (_plans.isEmpty)
+                      const GymCard(
+                        child: Text(
+                            'Chưa có kế hoạch. Hãy tạo lịch tập đầu tiên.'),
+                      )
+                    else
+                      ..._plans.map(_planCard),
+                  ],
+                ),
+              ),
+      );
 
   Widget _weeklyCard() => GymCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('TIẾN ĐỘ TUẦN', style: TextStyle(color: GymColors.muted, fontSize: 11)),
-        const SizedBox(height: 8),
-        Text(
-          '${_weekly!['completedMinutes'] ?? 0} phút đã tập',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('TIẾN ĐỘ TUẦN',
+                style: TextStyle(color: GymColors.muted, fontSize: 11)),
+            const SizedBox(height: 8),
+            Text(
+              '${_weekly!['completedMinutes'] ?? 0} phút đã tập',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '${_weekly!['completedWorkouts'] ?? 0}/${_weekly!['plannedWorkouts'] ?? 0} buổi hoàn thành',
+              style: const TextStyle(color: GymColors.muted),
+            ),
+          ],
         ),
-        Text(
-          '${_weekly!['completedWorkouts'] ?? 0}/${_weekly!['plannedWorkouts'] ?? 0} buổi hoàn thành',
-          style: const TextStyle(color: GymColors.muted),
-        ),
-      ],
-    ),
-  );
+      );
 
   Widget _planInputs() => GymCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('TẠO LỊCH TẬP CÁ NHÂN HÓA', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _goal,
-          decoration: const InputDecoration(labelText: 'Mục tiêu'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('TẠO LỊCH TẬP CÁ NHÂN HÓA',
+                style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _goal,
+              decoration: const InputDecoration(labelText: 'Mục tiêu'),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _level,
+              decoration: const InputDecoration(labelText: 'Trình độ'),
+              items: const ['Cơ bản', 'Trung cấp', 'Nâng cao']
+                  .map((value) =>
+                      DropdownMenuItem(value: value, child: Text(value)))
+                  .toList(),
+              onChanged: (value) => setState(() => _level = value ?? _level),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int>(
+              initialValue: _days,
+              decoration:
+                  const InputDecoration(labelText: 'Số ngày tập mỗi tuần'),
+              items: List.generate(7, (index) => index + 1)
+                  .map((value) => DropdownMenuItem(
+                      value: value, child: Text('$value ngày')))
+                  .toList(),
+              onChanged: (value) => setState(() => _days = value ?? _days),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _minutes,
+              keyboardType: TextInputType.number,
+              decoration:
+                  const InputDecoration(labelText: 'Thời gian mỗi buổi (phút)'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _location,
+              decoration: const InputDecoration(labelText: 'Địa điểm tập'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _equipment,
+              decoration: const InputDecoration(labelText: 'Dụng cụ hiện có'),
+            ),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              label:
+                  _generating ? 'AI đang tạo lịch...' : 'Tạo bản nháp bằng AI',
+              icon: Icons.auto_awesome,
+              onPressed: _generating ? null : _generateProposal,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'AI chỉ được chọn bài tập có sẵn trong danh mục; xem lại bản nháp trước khi lưu.',
+              style: TextStyle(color: GymColors.muted, fontSize: 12),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _level,
-          decoration: const InputDecoration(labelText: 'Trình độ'),
-          items: const ['Cơ bản', 'Trung cấp', 'Nâng cao']
-              .map((value) => DropdownMenuItem(value: value, child: Text(value)))
-              .toList(),
-          onChanged: (value) => setState(() => _level = value ?? _level),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<int>(
-          initialValue: _days,
-          decoration: const InputDecoration(labelText: 'Số ngày tập mỗi tuần'),
-          items: List.generate(7, (index) => index + 1)
-              .map((value) => DropdownMenuItem(value: value, child: Text('$value ngày')))
-              .toList(),
-          onChanged: (value) => setState(() => _days = value ?? _days),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _minutes,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Thời gian mỗi buổi (phút)'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _location,
-          decoration: const InputDecoration(labelText: 'Địa điểm tập'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _equipment,
-          decoration: const InputDecoration(labelText: 'Dụng cụ hiện có'),
-        ),
-        const SizedBox(height: 12),
-        PrimaryButton(
-          label: _generating ? 'AI đang tạo lịch...' : 'Tạo bản nháp bằng AI',
-          icon: Icons.auto_awesome,
-          onPressed: _generating ? null : _generateProposal,
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'AI chỉ được chọn bài tập có sẵn trong danh mục; xem lại bản nháp trước khi lưu.',
-          style: TextStyle(color: GymColors.muted, fontSize: 12),
-        ),
-      ],
-    ),
-  );
+      );
 
   Widget _proposalCard() {
     final proposal = _proposal!;
@@ -463,10 +493,16 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
             const Text('Bản nháp AI · Có thể xem trước rồi lưu'),
             for (final day in dayNumbers) ...[
               const SizedBox(height: 10),
-              Text('Ngày tập $day', style: const TextStyle(fontWeight: FontWeight.w700)),
-              for (final item in exercises.where((item) => item['dayNumber'] == day))
+              Text('Ngày tập $day',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              for (final item
+                  in exercises.where((item) => item['dayNumber'] == day))
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: _exerciseCompleted(item)
+                      ? const Icon(Icons.check_circle,
+                          color: Colors.greenAccent)
+                      : null,
                   title: Text(item['exerciseName']?.toString() ?? 'Bài tập'),
                   subtitle: Text(
                     '${item['muscleGroup'] ?? 'Toàn thân'} · ${item['sets']} hiệp × ${item['reps']} lần'
@@ -487,7 +523,8 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
               onPressed: _saving ? null : _saveProposal,
             ),
             TextButton(
-              onPressed: _saving ? null : () => setState(() => _proposal = null),
+              onPressed:
+                  _saving ? null : () => setState(() => _proposal = null),
               child: const Text('Bỏ bản nháp'),
             ),
           ],
@@ -500,7 +537,10 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
     final exercises = (plan['exercises'] as List<dynamic>? ?? [])
         .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
-    final dayNumbers = exercises.map((item) => (item['dayNumber'] as num?)?.toInt() ?? 1).toSet().toList()
+    final dayNumbers = exercises
+        .map((item) => (item['dayNumber'] as num?)?.toInt() ?? 1)
+        .toSet()
+        .toList()
       ..sort();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -529,8 +569,10 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
             ),
             for (final day in dayNumbers) ...[
               const SizedBox(height: 10),
-              Text('Ngày tập $day', style: const TextStyle(fontWeight: FontWeight.w700)),
-              for (final item in exercises.where((item) => (item['dayNumber'] as num?)?.toInt() == day))
+              Text('Ngày tập $day',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              for (final item in exercises
+                  .where((item) => (item['dayNumber'] as num?)?.toInt() == day))
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(item['exerciseName']?.toString() ?? 'Bài tập'),
@@ -538,12 +580,15 @@ class _WorkoutPlansScreenState extends State<WorkoutPlansScreen> {
                     '${item['muscleGroup'] ?? 'Nhóm cơ chưa rõ'} · ${item['sets']} hiệp × ${item['reps']} lần'
                     '${item['targetSeconds'] == null ? '' : ' / ${item['targetSeconds']} giây'} · '
                     'nghỉ ${item['restSeconds']} giây'
-                    '${(item['results'] as List<dynamic>? ?? []).isEmpty ? '' : ' · '
-                        '${(item['results'] as List<dynamic>).where((result) => result['completed'] == true).length} lần hoàn thành'}',
+                    '${_exerciseCompleted(item) ? ' · Đã tập xong' : ''}',
                   ),
                   trailing: IconButton(
-                    tooltip: 'Bắt đầu bài tập này',
-                    icon: const Icon(Icons.play_circle_outline),
+                    tooltip: _exerciseCompleted(item)
+                        ? 'Tập lại bài này'
+                        : 'Bắt đầu bài tập này',
+                    icon: Icon(_exerciseCompleted(item)
+                        ? Icons.replay
+                        : Icons.play_circle_outline),
                     onPressed: () => _startExercise(plan, item),
                   ),
                 ),
