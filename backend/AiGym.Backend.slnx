@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AiGym.Api.Tests/AiGym.Api.Tests.csproj" />
+  <Project Path="AiGym.Api/AiGym.Api.csproj" />
+</Solution>

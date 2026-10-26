@@ -3,42 +3,73 @@ import 'package:ai_gym/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart:convert';
+
+import 'package:ai_gym/services/api_client.dart';
+import 'package:ai_gym/services/profile_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
 void main() {
   testWidgets(
     'onboarding retains values on back and updates weekly plan at 320px',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 874);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: gymTheme(),
-          home: const OnboardingScreen(),
-          routes: {'/home': (_) => const Scaffold(body: Text('Dashboard'))},
-        ),
-      );
-      await tester.tap(find.text('Giảm mỡ thừa'));
-      await tester.tap(find.text('Tiếp tục'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Tăng tuổi'));
-      await tester.pump();
-      expect(find.text('25'), findsOneWidget);
-      await tester.tap(find.text('Tiếp tục'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('4 buổi'));
-      await tester.pump();
-      await tester.ensureVisible(find.textContaining('4 buổi/tuần'));
-      expect(find.textContaining('4 buổi/tuần'), findsOneWidget);
-      await tester.tap(find.byTooltip('Quay lại'));
-      await tester.pumpAndSettle();
-      expect(find.text('25'), findsOneWidget);
-      await tester.tap(find.text('Tiếp tục'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('4 buổi/tuần'), findsOneWidget);
-      await tester.tap(find.text('Tạo kế hoạch của tôi'));
-      await tester.pumpAndSettle();
-      expect(find.text('Dashboard'), findsOneWidget);
-    },
+    (tester) => http.runWithClient(
+      () async {
+        ApiClient.instance.token = 'test-token';
+        ProfileService.instance.profile = {
+          'fullName': 'Test User',
+          'email': 'test@example.com',
+        };
+        addTearDown(() {
+          ProfileService.instance.clear();
+          ApiClient.instance.token = null;
+        });
+        tester.view.physicalSize = const Size(320, 874);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: gymTheme(),
+            home: const OnboardingScreen(),
+            routes: {'/home': (_) => const Scaffold(body: Text('Dashboard'))},
+          ),
+        );
+        await tester.tap(find.text('Giảm mỡ thừa'));
+        await tester.tap(find.text('Tiếp tục'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Tăng tuổi'));
+        await tester.pump();
+        expect(find.text('25'), findsOneWidget);
+        await tester.tap(find.text('Tiếp tục'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('4 buổi'));
+        await tester.pump();
+        await tester.ensureVisible(find.textContaining('4 buổi/tuần'));
+        expect(find.textContaining('4 buổi/tuần'), findsOneWidget);
+        await tester.tap(find.byTooltip('Quay lại'));
+        await tester.pumpAndSettle();
+        expect(find.text('25'), findsOneWidget);
+        await tester.tap(find.text('Tiếp tục'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('4 buổi/tuần'), findsOneWidget);
+        await tester.tap(find.text('Tạo kế hoạch của tôi'));
+        await tester.pumpAndSettle();
+        expect(find.text('Dashboard'), findsOneWidget);
+      },
+      () => MockClient((request) async {
+        final fields = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(request.method, 'PUT');
+        expect(fields['fullName'], 'Test User');
+        expect(fields['age'], 25);
+        expect(fields['trainingDays'], 4);
+        expect(fields['goal'], 'Giảm mỡ thừa');
+        return http.Response(
+          jsonEncode(fields),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    ),
   );
 }

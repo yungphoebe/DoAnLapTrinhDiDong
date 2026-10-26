@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
+import '../services/profile_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -19,8 +20,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _level = 'Trung cấp';
   int _days = 3;
   String _location = 'Phòng Gym';
+  bool _saving = false;
+  bool _loading = false;
+  static const _goalNames = ['Tăng cơ bắp', 'Giảm mỡ thừa', 'Tăng sức bền'];
+
+  @override
+  void initState() {
+    super.initState();
+    if (ProfileService.instance.profile == null) {
+      _loading = true;
+      Future.microtask(ProfileService.instance.load).then((_) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _readProfile();
+        });
+      });
+    } else {
+      _readProfile();
+    }
+  }
+
+  void _readProfile() {
+    final profile = ProfileService.instance.profile;
+    if (profile == null) return;
+    final goal = _goalNames.indexOf(profile['goal'] as String? ?? '');
+    if (goal >= 0) _goal = goal;
+    _sex = profile['gender'] as String? ?? _sex;
+    _age = (profile['age'] as num?)?.toInt() ?? _age;
+    _height = (profile['heightCm'] as num?)?.toDouble() ?? _height;
+    _weight = (profile['weightKg'] as num?)?.toDouble() ?? _weight;
+    _level = profile['trainingLevel'] as String? ?? _level;
+    _days = (profile['trainingDays'] as num?)?.toInt() ?? _days;
+    _location = profile['trainingLocation'] as String? ?? _location;
+  }
 
   void _back() {
+    if (_saving) return;
     if (_step > 0) {
       setState(() => _step--);
     } else {
@@ -28,164 +64,201 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _finish() =>
+  void _skip() =>
       Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
 
+  Future<void> _finish() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ProfileService.instance.save({
+        'fullName': ProfileService.instance.profile?['fullName'],
+        'age': _age,
+        'heightCm': _height,
+        'weightKg': _weight,
+        'gender': _sex,
+        'goal': _goalNames[_goal],
+        'trainingDays': _days,
+        'trainingLevel': _level,
+        'trainingLocation': _location,
+      });
+      if (mounted) _skip();
+    } catch (error) {
+      if (mounted) showMessage(context, 'Không thể lưu hồ sơ: $error');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: _step == 0,
-    onPopInvokedWithResult: (didPop, result) {
-      if (!didPop && _step > 0) _back();
-    },
-    child: Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              child: Row(
-                children: [
-                  CircleBackButton(onPressed: _back),
-                  Expanded(
-                    child: Text(
-                      [
-                        'Thiết lập mục tiêu',
-                        'Chỉ số cá nhân',
-                        'Thiết lập lịch tập',
-                      ][_step],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              child: Row(
-                children: List.generate(
-                  3,
-                  (index) => Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: EdgeInsets.only(right: index < 2 ? 7 : 0),
-                      decoration: BoxDecoration(
-                        color: index <= _step
-                            ? GymColors.purple
-                            : GymColors.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                key: ValueKey(_step),
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'BƯỚC ${_step + 1}/3',
-                      style: const TextStyle(
-                        color: GymColors.purple,
-                        fontSize: 11,
-                        letterSpacing: 1,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      [
-                        'Mục tiêu chính của bạn là gì?',
-                        'Thông tin cơ thể của bạn',
-                        'Phong cách tập & Lịch trình',
-                      ][_step],
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      [
-                        'AI sẽ cá nhân hóa lịch tập và chế độ dinh dưỡng để giúp bạn đạt mục tiêu nhanh hơn.',
-                        'Thông tin giúp AI tính lượng calo cần thiết mỗi ngày (TDEE) và xây dựng lộ trình phù hợp.',
-                        'Một kế hoạch phù hợp với lối sống của bạn là khởi đầu cho thói quen bền vững.',
-                      ][_step],
-                      style: const TextStyle(
-                        color: GymColors.muted,
-                        fontSize: 12,
-                        height: 1.7,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    if (_step == 0) ..._goals(),
-                    if (_step == 1) ..._bodyMetrics(),
-                    if (_step == 2) ..._schedule(),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+  Widget build(BuildContext context) => _loading
+      ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+      : PopScope(
+          canPop: _step == 0 && !_saving,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && _step > 0) _back();
+          },
+          child: Scaffold(
+            body: SafeArea(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      if (_step == 1) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                    child: Row(
+                      children: [
+                        CircleBackButton(onPressed: _back),
                         Expanded(
-                          flex: 2,
-                          child: OutlinedButton(
-                            onPressed: _back,
-                            child: const Text(
-                              'Quay lại',
-                              style: TextStyle(fontSize: 12),
+                          child: Text(
+                            [
+                              'Thiết lập mục tiêu',
+                              'Chỉ số cá nhân',
+                              'Thiết lập lịch tập',
+                            ][_step],
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 48),
                       ],
-                      Expanded(
-                        flex: _step == 2 ? 4 : 3,
-                        child: PrimaryButton(
-                          label: _step == 2
-                              ? 'Tạo kế hoạch của tôi'
-                              : 'Tiếp tục',
-                          onPressed: _step == 2
-                              ? _finish
-                              : () => setState(() => _step++),
-                          icon: _step == 2 ? null : Icons.arrow_forward_rounded,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: List.generate(
+                        3,
+                        (index) => Expanded(
+                          child: Container(
+                            height: 3,
+                            margin: EdgeInsets.only(right: index < 2 ? 7 : 0),
+                            decoration: BoxDecoration(
+                              color: index <= _step
+                                  ? GymColors.purple
+                                  : GymColors.border,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  if (_step == 0) ...[
-                    const SizedBox(height: 9),
-                    TextButton(
-                      onPressed: _finish,
-                      child: const Text(
-                        'Bỏ qua thiết lập',
-                        style: TextStyle(fontSize: 12, color: GymColors.muted),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      key: ValueKey(_step),
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'BƯỚC ${_step + 1}/3',
+                            style: const TextStyle(
+                              color: GymColors.purple,
+                              fontSize: 11,
+                              letterSpacing: 1,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            [
+                              'Mục tiêu chính của bạn là gì?',
+                              'Thông tin cơ thể của bạn',
+                              'Phong cách tập & Lịch trình',
+                            ][_step],
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            [
+                              'AI sẽ cá nhân hóa lịch tập và chế độ dinh dưỡng để giúp bạn đạt mục tiêu nhanh hơn.',
+                              'Thông tin giúp AI tính lượng calo cần thiết mỗi ngày (TDEE) và xây dựng lộ trình phù hợp.',
+                              'Một kế hoạch phù hợp với lối sống của bạn là khởi đầu cho thói quen bền vững.',
+                            ][_step],
+                            style: const TextStyle(
+                              color: GymColors.muted,
+                              fontSize: 12,
+                              height: 1.7,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          if (_step == 0) ..._goals(),
+                          if (_step == 1) ..._bodyMetrics(),
+                          if (_step == 2) ..._schedule(),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            if (_step == 1) ...[
+                              Expanded(
+                                flex: 2,
+                                child: OutlinedButton(
+                                  onPressed: _back,
+                                  child: const Text(
+                                    'Quay lại',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              flex: _step == 2 ? 4 : 3,
+                              child: PrimaryButton(
+                                label: _saving
+                                    ? 'Đang lưu...'
+                                    : _step == 2
+                                    ? 'Tạo kế hoạch của tôi'
+                                    : 'Tiếp tục',
+                                onPressed: _saving
+                                    ? null
+                                    : _step == 2
+                                    ? _finish
+                                    : () => setState(() => _step++),
+                                icon: _step == 2
+                                    ? null
+                                    : Icons.arrow_forward_rounded,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_step == 0) ...[
+                          const SizedBox(height: 9),
+                          TextButton(
+                            onPressed: _skip,
+                            child: const Text(
+                              'Bỏ qua thiết lập',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: GymColors.muted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    ),
-  );
+          ),
+        );
 
   List<Widget> _goals() {
     const goals = [
@@ -343,7 +416,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         SizedBox(width: 7),
         Expanded(
           child: Text(
-            'Dữ liệu chỉ được sử dụng trong phiên demo này và không gửi lên máy chủ.',
+            'Kiểm tra và điều chỉnh các thông số đúng với bạn. Thông tin chỉ được lưu vào tài khoản khi bạn hoàn tất thiết lập.',
             style: TextStyle(color: GymColors.muted, fontSize: 10, height: 1.5),
           ),
         ),
@@ -526,7 +599,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Kế hoạch minh họa, chưa được lưu.',
+            'Nhấn “Tạo kế hoạch của tôi” để lưu thông tin và lịch tập vào tài khoản.',
             style: TextStyle(color: GymColors.muted, fontSize: 9),
           ),
         ],
@@ -585,8 +658,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Slider(
                 value: draft,
                 min: 100,
-                max: 220,
-                divisions: 120,
+                max: 230,
+                divisions: 130,
                 label: '${draft.round()} cm',
                 onChanged: (value) => update(() => draft = value),
               ),

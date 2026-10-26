@@ -4,6 +4,24 @@ Giao diện tiếng Việt theo 12 màn hình tham chiếu, nền tối và đi�
 
 ## Chạy ứng dụng
 
+Đăng nhập bằng Google trên web: xem [cấu hình Client ID](docs/GOOGLE_LOGIN.md).
+Nút Google dùng tài khoản thật sau khi cấu hình backend, không cần mật khẩu Gmail.
+
+Trên máy Windows hiện tại, mở hai terminal PowerShell tại thư mục ngoài
+`C:\Users\ACER\Documents\HOC FE\GYM-AI-main` và chạy lần lượt:
+
+```powershell
+.\run-backend.cmd
+```
+
+```powershell
+.\run-app.cmd
+```
+
+Giữ cả hai terminal chạy. Mở Chrome tại `http://localhost:5353`,
+backend tại `http://localhost:5129`. Script tự chọn đúng thư mục con chứa
+`pubspec.yaml`; script Flutter dùng PATH hoặc SDK tại `E:\flutter`.
+
 Yêu cầu Flutter 3.47.5 / Dart 3.13.4 trở lên.
 
 ```sh
@@ -11,23 +29,24 @@ flutter pub get
 flutter run -d chrome
 ```
 
-Trên máy hiện tại, Flutter nằm ở `C:\Users\Phoebe\flutter` nhưng chưa có trong PATH. Mở PowerShell tại thư mục dự án và chạy:
+Trên máy hiện tại, Flutter nằm ở `E:\flutter`. Nếu PATH chưa có Flutter,
+mở PowerShell tại thư mục chứa `pubspec.yaml` và chạy:
 
 ```powershell
-& "$env:USERPROFILE\flutter\bin\flutter.bat" run -d chrome
+& "E:\flutter\bin\flutter.bat" run -d chrome --web-port=5353 --dart-define=API_BASE_URL=http://localhost:5129
 ```
 
 Để chạy ứng dụng Windows desktop (cần Visual Studio với workload **Desktop development with C++**):
 
 ```powershell
-& "$env:USERPROFILE\flutter\bin\flutter.bat" run -d windows
+& "E:\flutter\bin\flutter.bat" run -d windows
 ```
 
 Để chạy trên Android/iOS, chọn thiết bị từ `flutter devices` rồi dùng `flutter run -d <device-id>`. Build iOS cần macOS và Xcode. Bản web ở màn hình lớn được giới hạn chiều rộng 480 px; trên điện thoại giao diện dùng toàn bộ chiều rộng.
 
-Chọn **Khám phá bản giao diện** ở trang đăng nhập để vào nhanh, hoặc nhập email/số điện thoại hợp lệ và mật khẩu bất kỳ. Luồng đăng ký kiểm tra họ tên, email/điện thoại, mật khẩu tối thiểu 8 ký tự, xác nhận mật khẩu và điều khoản, rồi mở ba bước onboarding.
+Chọn **Đăng nhập tài khoản demo** ở trang đăng nhập để vào nhanh bằng tài khoản demo có kết nối backend, hoặc nhập email/số điện thoại hợp lệ và mật khẩu. Luồng đăng ký kiểm tra họ tên, email/điện thoại, mật khẩu tối thiểu 8 ký tự, xác nhận mật khẩu và điều khoản, rồi mở ba bước onboarding.
 
-Tài khoản demo có sẵn: **admin123@gmail.com**, mật khẩu **123123123Az!**. Nhập đúng thông tin này ở trang đăng nhập để vào trang chủ. Đây là tài khoản minh họa cục bộ, chưa có xác thực máy chủ hoặc quyền quản trị.
+Tài khoản demo có sẵn: **admin123@gmail.com**, mật khẩu **123123123Az!**. Nhập đúng thông tin này ở trang đăng nhập hoặc chọn nút đăng nhập demo để vào trang chủ. Đăng nhập qua backend giúp lưu và khôi phục lịch sử AI Coach.
 
 ## Màn hình và mã nguồn
 

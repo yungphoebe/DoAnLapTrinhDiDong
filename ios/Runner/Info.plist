@@ -2,6 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Ứng dụng kết nối AI Server trên laptop trong mạng nội bộ.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ứng dụng cần truy cập ảnh để phân tích bài tập với AI.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ứng dụng cần camera để chụp ảnh bài tập và phân tích với AI.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ứng dụng cần microphone để nhập câu hỏi cho AI Coach bằng giọng nói.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Ứng dụng cần đọc bài tập để đồng bộ lịch sử luyện tập.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Ứng dụng cần ghi bài tập đã hoàn thành vào Apple Health.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
