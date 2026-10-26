@@ -64,7 +64,7 @@ function voiceSupport() {
   }
   $('voice-note').textContent = voice.hasVietnameseVoice
     ? 'Đã có giọng Việt. Camera sẽ đọc hướng dẫn và số lần tập; nhắc tư thế tối đa một lần mỗi 5 giây.'
-    : 'Đang dùng ngôn ngữ vi-VN của trình duyệt. Nếu không nghe tiếng Việt, hãy thêm giọng tiếng Việt trong cài đặt giọng nói của máy rồi mở lại Chrome.';
+    : 'Đang dùng âm thanh tiếng Việt có sẵn cho hướng dẫn và số lần tập. Không cần cài thêm giọng nói trên máy.';
 }
 voiceSupport();
 if ('speechSynthesis' in window) speechSynthesis.addEventListener('voiceschanged',voiceSupport);
