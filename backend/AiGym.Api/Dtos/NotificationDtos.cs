@@ -5,6 +5,7 @@ namespace AiGym.Api.Dtos;
 public sealed class ReminderSettingsDto
 {
     public bool WorkoutEnabled { get; set; }
+    public bool BotRoastEnabled { get; set; }
     public string WorkoutTime { get; set; } = "18:00";
     public int[] WorkoutDays { get; set; } = [1, 2, 3, 4, 5, 6, 7];
     public bool WaterEnabled { get; set; }
@@ -42,6 +43,7 @@ public sealed class ReminderSettingsDto
         Minute(WorkoutTime, out var workout); Minute(WaterStart, out var start);
         Minute(WaterEnd, out var end); Minute(WeeklyTime, out var weekly);
         settings.WorkoutEnabled = WorkoutEnabled; settings.WorkoutMinute = workout;
+        settings.BotRoastEnabled = BotRoastEnabled;
         settings.WorkoutDays = string.Join(',', WorkoutDays.Distinct().Order());
         settings.WaterEnabled = WaterEnabled; settings.WaterStartMinute = start; settings.WaterEndMinute = end;
         settings.WaterIntervalMinutes = WaterIntervalMinutes;
@@ -52,6 +54,7 @@ public sealed class ReminderSettingsDto
     public static ReminderSettingsDto From(ReminderSettings s) => new()
     {
         WorkoutEnabled = s.WorkoutEnabled, WorkoutTime = Format(s.WorkoutMinute),
+        BotRoastEnabled = s.BotRoastEnabled,
         WorkoutDays = s.WorkoutDays.Split(',').Select(int.Parse).ToArray(),
         WaterEnabled = s.WaterEnabled, WaterStart = Format(s.WaterStartMinute), WaterEnd = Format(s.WaterEndMinute),
         WaterIntervalMinutes = s.WaterIntervalMinutes, WeeklyEnabled = s.WeeklyEnabled,

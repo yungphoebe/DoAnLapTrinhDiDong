@@ -8,7 +8,7 @@ const names = {squat:'Squat',pushup:'Chống đẩy',jumpingJack:'Jumping Jack',
 const edges = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[27,29],[29,31],[28,30],[30,32]];
 let stream, worker, session, pending, saveTimer, animation, lastFrame = -1, lastTimestamp = 0;
 let busy = false, ready = false, running = false, opening = false, disposed = false, saved = false;
-let generation = 0, speechAt = -Infinity, spoken = '', previousReps = 0;
+let generation = 0, speechAt = -Infinity, spoken = '';
 let cancelInitialization;
 
 window.addEventListener('message', event => {
@@ -41,7 +41,8 @@ function speak(text, force = false) {
   message.lang = 'vi-VN'; message.rate = .95;
   const voice = speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith('vi'));
   if (voice) message.voice = voice;
-  speechSynthesis.speak(message); speechAt=now; spoken=text;
+  // Forced lines (counts, start/finish) must not hold back the next form cue.
+  speechSynthesis.speak(message); if(!force){speechAt=now; spoken=text;}
 }
 function voiceSupport() {
   if (!('speechSynthesis' in window)) {
@@ -146,9 +147,9 @@ async function open() {
           : 'Đặt toàn thân trong khung hình.');
       $('feedback').textContent=feedback;
       $('feedback').className=state;
-      if(result.feedbackCodes.length || !result.tracking) speak(feedback);
-      else if(result.reps>previousReps) speak(`${result.reps} lần.`,false);
-      previousReps=result.reps;
+      // Counts always speak; cues are throttled inside speak().
+      if(result.repEvent) speak(result.repEvent==='correct' ? `${result.reps}` : `${result.reps}, chưa đạt`,true);
+      else if(result.feedbackCodes.length || !result.tracking) speak(feedback);
     };
     ready=true; lastFrame=-1; resume();animation=requestAnimationFrame(frame);
   } catch(error) {
@@ -162,6 +163,7 @@ function resume() {
   session ??= new PoseSession(crypto.randomUUID(),new Date().toISOString());
   engine.resetMotion();running=true;session.resume(performance.now());
   status('Đang theo dõi chuyển động.');controls();
+  speak(`Bắt đầu ${$('exercise').value==='auto' ? 'tập' : names[$('exercise').value]}. Cố lên!`,true);
 }
 function sendSave() {
   if(!pending || saved)return;
@@ -174,6 +176,8 @@ function sendSave() {
 function finish() {
   if(!session || pending)return;
   pause();pending=session.finish(performance.now(),engine.summary());releaseCamera();
+  const total=pending.exercises.reduce((sum,x)=>sum+x.reps,0), good=pending.exercises.reduce((sum,x)=>sum+x.correctReps,0);
+  speak(`Hoàn thành. ${total} lần, ${good} lần đúng form.`,true);
   $('result').hidden=false;
   $('summary').textContent=`${pending.durationSeconds} giây hoạt động\n`+pending.exercises.map(x=>`${names[x.exercise]}: ${x.reps} reps · ${x.correctReps} đạt · ${x.incorrectReps} có lỗi`).join('\n');
   if(pending.durationSeconds<1){$('save-status').textContent='Phiên dưới 1 giây, không lưu.';saved=true;}

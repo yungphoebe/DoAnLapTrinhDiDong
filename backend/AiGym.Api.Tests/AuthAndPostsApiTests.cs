@@ -368,7 +368,6 @@ public sealed class AuthAndPostsApiTests : IClassFixture<ApiFactory>
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"aigym-tests-{Guid.NewGuid():N}";
-    private readonly string _databaseName = $"aigym-tests-{Guid.NewGuid()}";
     public FakeEmailSender EmailSender { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

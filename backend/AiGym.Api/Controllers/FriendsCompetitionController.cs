@@ -830,7 +830,7 @@ internal static class FriendsCompetitionDataHelper
     }
 
     public static async Task<List<MedalLeaderboardItemDto>> GetMedalLeaderboardAsync(
-        ApplicationDbContext db, string currentUserId, bool friendsOnly)
+        ApplicationDbContext db, string currentUserId, bool friendsOnly, bool localOnly = false)
     {
         await EnsureSchemaAsync(db);
         var conn = db.Database.GetDbConnection();
@@ -843,6 +843,17 @@ internal static class FriendsCompetitionDataHelper
                 WHERE u.Id = @UserId OR u.Id IN (
                     SELECT CASE WHEN RequesterId = @UserId THEN ReceiverId ELSE RequesterId END
                     FROM dbo.Friendships WHERE (RequesterId = @UserId OR ReceiverId = @UserId) AND Status = 'Accepted'
+                );
+                """
+            : localOnly
+            ? """
+                SELECT TOP 50 u.Id, u.FullName, u.TrainingLevel
+                FROM dbo.AspNetUsers u
+                INNER JOIN dbo.AspNetUsers me ON me.Id = @UserId
+                WHERE u.Id = @UserId OR (
+                    me.TrainingLocation IS NOT NULL AND
+                    me.TrainingLocation <> '' AND
+                    u.TrainingLocation = me.TrainingLocation
                 );
                 """
             : """
@@ -1051,7 +1062,9 @@ public class MedalsController : ControllerBase
     public async Task<IActionResult> GetMedalLeaderboard([FromQuery] string? scope)
     {
         var friendsOnly = string.Equals(scope, "friends", StringComparison.OrdinalIgnoreCase);
-        var list = await FriendsCompetitionDataHelper.GetMedalLeaderboardAsync(_db, GetUserId(), friendsOnly);
+        var localOnly = string.Equals(scope, "local", StringComparison.OrdinalIgnoreCase);
+        var list = await FriendsCompetitionDataHelper.GetMedalLeaderboardAsync(
+            _db, GetUserId(), friendsOnly, localOnly);
         return Ok(list);
     }
 }

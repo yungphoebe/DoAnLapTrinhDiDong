@@ -126,6 +126,19 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
                   ),
                   const Divider(),
                   SwitchListTile(
+                    title: const Text('Bot cà khịa'),
+                    subtitle: const Text(
+                      'Bật để bot trêu khi bạn lười. Tắt để nhận lời động viên.',
+                    ),
+                    value: s.botRoastEnabled,
+                    onChanged: c.saving
+                        ? null
+                        : (v) => setState(
+                            () => _draft = s.copyWith(botRoastEnabled: v),
+                          ),
+                  ),
+                  const Divider(),
+                  SwitchListTile(
                     title: const Text('Nhắc uống nước'),
                     value: s.waterEnabled,
                     onChanged: c.saving

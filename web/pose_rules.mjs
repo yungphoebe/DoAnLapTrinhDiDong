@@ -8,7 +8,18 @@ const messages = {
   shoulder_press_lock: 'Giữ thân người ổn định khi đẩy tay lên.',
   shoulder_press_asymmetry: 'Đưa hai tay lên xuống cùng nhịp.',
   biceps_swing: 'Giữ khuỷu tay sát thân, không đung đưa người.',
+  squat_shallow: 'Hạ hông sâu hơn, đùi gần song song mặt đất.',
+  pushup_shallow: 'Hạ ngực thấp hơn, gập khuỷu tay sâu hơn.',
+  biceps_partial: 'Co tay hết biên độ, đưa tạ lên gần vai.',
 };
+// Partial-range cue: the angle dipped below `shallow` but never reached the active zone.
+// Mirrored in lib/services/pose_rules.dart; keep both in sync.
+const ranges = {
+  squat: {active: 110, shallow: 145, code: 'squat_shallow'},
+  pushup: {active: 105, shallow: 140, code: 'pushup_shallow'},
+  bicepsCurl: {active: 105, shallow: 130, code: 'biceps_partial'},
+};
+const SMOOTHING = 0.5;
 const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
 function angle(a,b,c) {
   const ab=distance(a,b), cb=distance(c,b);
@@ -29,6 +40,7 @@ export class PoseWorkout {
     this.exercise=null; this.candidate=null; this.candidateSince=0;
     this.phase='waiting'; this.zone=null; this.zoneSince=0; this.cycleStart=null;
     this.bad=false; this.previousCodes=new Set(); this.lastTime=null; this.side=null;
+    this.cycleMin=Infinity;
   }
   setExercise(mode) {
     if(mode!=='auto' && !exercises.includes(mode)) throw new Error('Unknown exercise');
@@ -37,16 +49,29 @@ export class PoseWorkout {
   summary() {
     return {exercises:Object.entries(this.counts).map(([exercise,v])=>({exercise,...v})),feedbackCounts:{...this.feedbackCounts}};
   }
-  result(tracking, codes, value=null) {
+  // repEvent is 'correct' or 'incorrect' on the frame a rep is counted.
+  result(tracking, codes, value=null, repEvent=null) {
     const totals=Object.values(this.counts).reduce((a,v)=>({reps:a.reps+v.reps,correctReps:a.correctReps+v.correctReps,incorrectReps:a.incorrectReps+v.incorrectReps}),{reps:0,correctReps:0,incorrectReps:0});
-    return {exercise:this.exercise,feedback:codes.map(c=>messages[c]),feedbackCodes:codes,tracking,phase:this.phase,angle:value,...totals};
+    return {exercise:this.exercise,feedback:codes.map(c=>messages[c]),feedbackCodes:codes,tracking,phase:this.phase,angle:value,repEvent,...totals};
   }
-  update(landmarks, timestampMs, width=1, height=1) {
+  count(exercise) {
+    const row=this.counts[exercise]??={reps:0,correctReps:0,incorrectReps:0};
+    row.reps++; row[this.bad?'incorrectReps':'correctReps']++;
+    return this.bad?'incorrect':'correct';
+  }
+  update(raw, timestampMs, width=1, height=1) {
     if(!Number.isFinite(timestampMs) || !Number.isFinite(width) || !Number.isFinite(height) || width<=0 || height<=0 ||
-      !Array.isArray(landmarks)) {
-      this.resetMotion(); return this.result(false,['tracking']);
+      !Array.isArray(raw)) {
+      this.smoothed=null; this.resetMotion(); return this.result(false,['tracking']);
     }
-    if(this.lastTime!==null && (timestampMs<=this.lastTime || timestampMs-this.lastTime>1000)) this.resetMotion();
+    if(this.lastTime!==null && (timestampMs<=this.lastTime || timestampMs-this.lastTime>1000)) { this.smoothed=null; this.resetMotion(); }
+    // Light EMA on positions damps landmark jitter; visibility stays raw.
+    const previous=this.smoothed;
+    const landmarks=raw.map((v,i)=>{
+      const q=previous?.[i];
+      return !v || !q || !Number.isFinite(q.x) ? v : {...v,x:q.x+SMOOTHING*(v.x-q.x),y:q.y+SMOOTHING*(v.y-q.y)};
+    });
+    this.smoothed=landmarks;
     const shoulderMode = this.mode==='shoulderPress';
     const upperBody = shoulderMode || this.mode==='bicepsCurl';
     const visibilityThreshold = upperBody ? 0.0 : 0.6;
@@ -82,17 +107,12 @@ export class PoseWorkout {
           this.cycleStart = timestampMs;
         }
       }
+      let repEvent = null;
       if (zone && timestampMs - this.zoneSince >= 100) {
         if (zone === 'baseline') {
           if (this.phase === 'active' && this.cycleStart !== null &&
               timestampMs - this.cycleStart >= 100) {
-            const row = this.counts[this.mode] ??= {
-              reps: 0,
-              correctReps: 0,
-              incorrectReps: 0,
-            };
-            row.reps++;
-            row[this.bad ? 'incorrectReps' : 'correctReps']++;
+            repEvent = this.count(this.mode);
           }
           this.phase = 'ready';
           this.cycleStart = null;
@@ -103,7 +123,7 @@ export class PoseWorkout {
         }
       }
       this.lastTime = timestampMs;
-      return this.result(true, codes);
+      return this.result(true, codes, null, repEvent);
     }
     const sides=[0,1].map(side=>{
       const required=shoulderMode
@@ -185,6 +205,15 @@ export class PoseWorkout {
       zone=armsDown && spread<1.3?'baseline':armsUp && spread>1.8?'active':null;
       if((armsDown && spread>1.8) || (armsUp && spread<1.3)) codes.push('jack_coordination');
     }
+    const range=ranges[this.exercise];
+    if(range && value!==null && this.phase==='ready') {
+      this.cycleMin=Math.min(this.cycleMin,value);
+      if(zone==='baseline' && this.zone!=='baseline') {
+        // A dip past `active` that was too brief to count is not "too shallow".
+        if(this.cycleMin<range.shallow && this.cycleMin>=range.active) codes.push(range.code);
+        this.cycleMin=Infinity;
+      }
+    }
     for(const code of codes) if(!this.previousCodes.has(code)) this.feedbackCounts[code]=(this.feedbackCounts[code]??0)+1;
     this.previousCodes=new Set(codes);
     if(this.phase!=='waiting' && codes.length) this.bad=true;
@@ -192,15 +221,13 @@ export class PoseWorkout {
       this.zone=zone; this.zoneSince=timestampMs;
       if(this.phase==='ready' && zone!=='baseline' && this.cycleStart===null) this.cycleStart=timestampMs;
     }
+    let repEvent=null;
     if(zone && timestampMs-this.zoneSince>=150) {
       if(zone==='baseline') {
-        if(this.phase==='active' && timestampMs-this.cycleStart>=300) {
-          const row=this.counts[this.exercise]??={reps:0,correctReps:0,incorrectReps:0};
-          row.reps++; row[this.bad?'incorrectReps':'correctReps']++;
-        }
-        this.phase='ready'; this.cycleStart=null; this.bad=false;
+        if(this.phase==='active' && timestampMs-this.cycleStart>=300) repEvent=this.count(this.exercise);
+        this.phase='ready'; this.cycleStart=null; this.bad=false; this.cycleMin=Infinity;
       } else if(this.phase==='ready') this.phase='active';
     }
-    return this.result(true,codes,value);
+    return this.result(true,codes,value,repEvent);
   }
 }

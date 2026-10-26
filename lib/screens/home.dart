@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../notifications/controller.dart';
-
 import '../services/profile_service.dart';
 import '../models/workout.dart';
 import '../ui.dart';
@@ -83,6 +81,42 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
               const SizedBox(height: 16),
+              GymCard(
+                child: InkWell(
+                  onTap: () => Navigator.pushNamed(context, '/training-bot'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: GymColors.purple,
+                        child: Icon(Icons.smart_toy_outlined, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'GYM BUDDY đang chờ bạn',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Nhắc tập, giữ streak và trêu nhẹ khi bạn lười',
+                              style: TextStyle(
+                                color: GymColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: GymColors.muted),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
               GymCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,6 +227,55 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              GymCard(
+                child: InkWell(
+                  onTap: () =>
+                      Navigator.pushNamed(context, '/friends-competition'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFB83F)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.leaderboard_rounded,
+                          color: Color(0xFFFFB83F),
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Thi đua & Bảng xếp hạng',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'So tài điểm tập với bạn bè và người cùng khu vực',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: GymColors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: GymColors.muted),
+                    ],
+                  ),
+                ),
+              ),
               SectionHeading(
                 title: 'Bài tập đề xuất',
                 action: 'Xem thêm',
@@ -224,7 +307,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/workout-plans'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/workout-plans'),
                   icon: const Icon(Icons.calendar_month_outlined, size: 17),
                   label: const Text('Kế hoạch và lịch tập của tôi'),
                 ),
@@ -237,10 +321,21 @@ class _HomeScreenState extends State<HomeScreen> {
               GymCard(
                 child: Row(
                   children: [
-                    const Icon(Icons.restaurant_outlined, color: GymColors.purple),
+                    const Icon(
+                      Icons.restaurant_outlined,
+                      color: GymColors.purple,
+                    ),
                     const SizedBox(width: 10),
-                    const Expanded(child: Text('Theo dõi calo và macro từ các bữa ăn của bạn.')),
-                    TextButton(onPressed: () => Navigator.pushNamed(context, '/nutrition'), child: const Text('Ghi món')),
+                    const Expanded(
+                      child: Text(
+                        'Theo dõi calo và macro từ các bữa ăn của bạn.',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/nutrition'),
+                      child: const Text('Ghi món'),
+                    ),
                   ],
                 ),
               ),
@@ -271,11 +366,15 @@ class _HomeScreenState extends State<HomeScreen> {
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           children: [
-            const Text('Thư viện bài tập',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            const Text(
+              'Thư viện bài tập',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
-            const Text('Chọn giáo án để xem bài, hiệp, lần và thời lượng.',
-                style: TextStyle(color: GymColors.muted)),
+            const Text(
+              'Chọn giáo án để xem bài, hiệp, lần và thời lượng.',
+              style: TextStyle(color: GymColors.muted),
+            ),
             const SizedBox(height: 16),
             for (final plan in workoutPlans)
               ListTile(
@@ -319,43 +418,40 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
               ...plan.exercises.map(
-                    (exercise) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.fitness_center_rounded,
-                            size: 20,
-                            color: GymColors.purple,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(exercise.name),
-                                const SizedBox(height: 3),
-                                Text(
-                                  exercise.description,
-                                  style: const TextStyle(
-                                    color: GymColors.muted,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '${exercise.sets} × ${exercise.reps}\n${exercise.restSeconds}s nghỉ',
-                            style: TextStyle(
-                              color: GymColors.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                (exercise) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.fitness_center_rounded,
+                        size: 20,
+                        color: GymColors.purple,
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(exercise.name),
+                            const SizedBox(height: 3),
+                            Text(
+                              exercise.description,
+                              style: const TextStyle(
+                                color: GymColors.muted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${exercise.sets} × ${exercise.reps}\n${exercise.restSeconds}s nghỉ',
+                        style: TextStyle(color: GymColors.muted, fontSize: 12),
+                      ),
+                    ],
                   ),
+                ),
+              ),
               const SizedBox(height: 20),
               for (final exercise in plan.exercises)
                 Padding(

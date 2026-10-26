@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AiGym.Api.Dtos;
 
 namespace AiGym.Api.Models;
 
@@ -39,6 +40,29 @@ public class UserChallenge
     {
         DailyLogsJson = JsonSerializer.Serialize(logs);
     }
+
+    // Reaching the step target locks the challenge until the next local day.
+    public void AddProgress(ChallengeDefinition def, int amount, string date)
+    {
+        if (IsCompleted || amount <= 0 || LastProgressDate == date || CurrentStepIndex >= def.Steps.Count) return;
+        var step = def.Steps[CurrentStepIndex];
+        var logs = GetDailyLogs();
+        logs.Add(new DailyProgressLog { date = date, amount = amount, created_at = DateTime.UtcNow.ToString("o") });
+        SetDailyLogs(logs);
+        var todayAmount = logs.Where(l => l.date == date).Sum(l => l.amount);
+        if (todayAmount < step.TargetValue)
+        {
+            CurrentProgress = todayAmount;
+            return;
+        }
+        LastProgressDate = date;
+        CurrentStepIndex++;
+        CurrentProgress = 0;
+        if (CurrentStepIndex < def.Steps.Count) return;
+        CurrentProgress = step.TargetValue;
+        IsCompleted = true;
+        CompletedAt = DateTime.UtcNow;
+    }
 }
 
 public class ChallengeDefinition
@@ -49,6 +73,8 @@ public class ChallengeDefinition
     public string Emoji { get; set; } = string.Empty;
     public string Difficulty { get; set; } = "Medium";
     public int DurationDays { get; set; }
+    // "session", "morningSession" or a camera exercise key such as "squat".
+    public string Metric { get; set; } = "session";
     public string MedalTitle { get; set; } = string.Empty;
     public string MedalDescription { get; set; } = string.Empty;
     public List<ChallengeStepDefinition> Steps { get; set; } = new();
@@ -69,107 +95,123 @@ public static class ChallengeCatalog
         new ChallengeDefinition
         {
             Id = "c1",
-            Title = "7 Ngay Khong Nghi",
-            Description = "Tap gym lien tuc 7 ngay khong bo lo mot buoi nao. Xay dung thoi quen kien tri!",
+            Title = "7 Ngày Không Nghỉ",
+            Description = "Tập gym liên tục 7 ngày không bỏ lỡ một buổi nào. Xây dựng thói quen kiên trì!",
             Emoji = "🔥",
             Difficulty = "Easy",
             DurationDays = 7,
-            MedalTitle = "Huy Chuong Kien Tri",
-            MedalDescription = "Hoan thanh 7 ngay tap khong nghi",
+            MedalTitle = "Huy Chương Kiên Trì",
+            MedalDescription = "Hoàn thành 7 ngày tập không nghỉ",
             Steps = new()
             {
-                new ChallengeStepDefinition { Title = "Ngay 1-2", Description = "Tap it nhat 2 buoi gym", TargetValue = 2, Unit = "buoi" },
-                new ChallengeStepDefinition { Title = "Ngay 3-5", Description = "Tap them 3 buoi lien tiep", TargetValue = 3, Unit = "buoi" },
-                new ChallengeStepDefinition { Title = "Ngay 6-7", Description = "Hoan thanh 2 buoi cuoi", TargetValue = 2, Unit = "buoi" }
+                new ChallengeStepDefinition { Title = "Ngày 1-2", Description = "Tập ít nhất 2 buổi gym", TargetValue = 2, Unit = "buổi" },
+                new ChallengeStepDefinition { Title = "Ngày 3-5", Description = "Tập thêm 3 buổi liên tiếp", TargetValue = 3, Unit = "buổi" },
+                new ChallengeStepDefinition { Title = "Ngày 6-7", Description = "Hoàn thành 2 buổi cuối", TargetValue = 2, Unit = "buổi" }
             }
         },
         new ChallengeDefinition
         {
             Id = "c2",
-            Title = "Vua Cardio 30 Ngay",
-            Description = "Chay tong cong 100km trong 30 ngay. Thu thach suc ben thuc su!",
+            Title = "Vua Cardio 30 Ngày",
+            Description = "Thực hiện tổng cộng 1000 cái jumping jack trong 30 ngày. Thử thách sức bền thực sự!",
             Emoji = "🏃",
             Difficulty = "Medium",
             DurationDays = 30,
-            MedalTitle = "Huy Chuong Cardio Vuong",
-            MedalDescription = "Hoan thanh 100km chay bo trong 30 ngay",
+            Metric = "jumpingJack",
+            MedalTitle = "Huy Chương Cardio Vương",
+            MedalDescription = "Hoàn thành 1000 jumping jack trong 30 ngày",
             Steps = new()
             {
-                new ChallengeStepDefinition { Title = "Tuan 1", Description = "Chay 20km dau tien", TargetValue = 20, Unit = "km" },
-                new ChallengeStepDefinition { Title = "Tuan 2", Description = "Tiep tuc 30km tiep theo", TargetValue = 30, Unit = "km" },
-                new ChallengeStepDefinition { Title = "Tuan 3", Description = "Day len 30km nua", TargetValue = 30, Unit = "km" },
-                new ChallengeStepDefinition { Title = "Tuan 4", Description = "Ve dich voi 20km con lai", TargetValue = 20, Unit = "km" }
+                new ChallengeStepDefinition { Title = "Tuần 1", Description = "200 jumping jack đầu tiên", TargetValue = 200, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 2", Description = "Tiếp tục 300 cái", TargetValue = 300, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 3", Description = "Đẩy lên 300 cái nữa", TargetValue = 300, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 4", Description = "Về đích với 200 cái còn lại", TargetValue = 200, Unit = "cái" }
             }
         },
         new ChallengeDefinition
         {
             Id = "c3",
-            Title = "Thach Thuc Squat 1000",
-            Description = "Thuc hien 1000 cai squat trong 10 ngay. Dui thep cho ban!",
+            Title = "Thách Thức Squat 1000",
+            Description = "Thực hiện 1000 cái squat trong 10 ngày. Đùi thép cho bạn!",
             Emoji = "🦵",
             Difficulty = "Medium",
             DurationDays = 10,
-            MedalTitle = "Huy Chuong Dui Thep",
-            MedalDescription = "Hoan thanh 1000 squat trong 10 ngay",
+            Metric = "squat",
+            MedalTitle = "Huy Chương Đùi Thép",
+            MedalDescription = "Hoàn thành 1000 squat trong 10 ngày",
             Steps = new()
             {
-                new ChallengeStepDefinition { Title = "Ngay 1-3", Description = "Warm-up: 300 squat", TargetValue = 300, Unit = "cai" },
-                new ChallengeStepDefinition { Title = "Ngay 4-7", Description = "Tang toc: 400 squat", TargetValue = 400, Unit = "cai" },
-                new ChallengeStepDefinition { Title = "Ngay 8-10", Description = "Ve dich: 300 squat cuoi", TargetValue = 300, Unit = "cai" }
+                new ChallengeStepDefinition { Title = "Ngày 1-3", Description = "Warm-up: 300 squat", TargetValue = 300, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Ngày 4-7", Description = "Tăng tốc: 400 squat", TargetValue = 400, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Ngày 8-10", Description = "Về đích: 300 squat cuối", TargetValue = 300, Unit = "cái" }
             }
         },
         new ChallengeDefinition
         {
             Id = "c4",
-            Title = "Chien Binh Push-up",
-            Description = "Tu 10 cai len 100 cai push-up moi ngay trong 21 ngay. Vuot gioi han ban than!",
+            Title = "Chiến Binh Push-up",
+            Description = "Từ 10 cái lên 100 cái push-up mỗi ngày trong 21 ngày. Vượt giới hạn bản thân!",
             Emoji = "💪",
             Difficulty = "Hard",
             DurationDays = 21,
-            MedalTitle = "Huy Chuong Chien Binh",
-            MedalDescription = "Hoan thanh thu thach push-up 21 ngay",
+            Metric = "pushup",
+            MedalTitle = "Huy Chương Chiến Binh",
+            MedalDescription = "Hoàn thành thử thách push-up 21 ngày",
             Steps = new()
             {
-                new ChallengeStepDefinition { Title = "Tuan 1", Description = "Bat dau: 10-30 cai/ngay", TargetValue = 140, Unit = "cai" },
-                new ChallengeStepDefinition { Title = "Tuan 2", Description = "Tang: 30-60 cai/ngay", TargetValue = 315, Unit = "cai" },
-                new ChallengeStepDefinition { Title = "Tuan 3", Description = "Dinh cao: 60-100 cai/ngay", TargetValue = 560, Unit = "cai" }
+                new ChallengeStepDefinition { Title = "Tuần 1", Description = "Bắt đầu: 10-30 cái/ngày", TargetValue = 140, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 2", Description = "Tăng: 30-60 cái/ngày", TargetValue = 315, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 3", Description = "Đỉnh cao: 60-100 cái/ngày", TargetValue = 560, Unit = "cái" }
             }
         },
         new ChallengeDefinition
         {
             Id = "c5",
-            Title = "Thien Gym Buoi Sang",
-            Description = "Tap gym vao buoi sang truoc 8h, 15 ngay lien tiep. Suc manh bat dau tu binh minh!",
+            Title = "Thiền Gym Buổi Sáng",
+            Description = "Tập gym vào buổi sáng trước 8h, 15 ngày liên tiếp. Sức mạnh bắt đầu từ bình minh!",
             Emoji = "🌅",
             Difficulty = "Easy",
             DurationDays = 15,
-            MedalTitle = "Huy Chuong Binh Minh",
-            MedalDescription = "Hoan thanh 15 buoi tap sang som",
+            Metric = "morningSession",
+            MedalTitle = "Huy Chương Bình Minh",
+            MedalDescription = "Hoàn thành 15 buổi tập sáng sớm",
             Steps = new()
             {
-                new ChallengeStepDefinition { Title = "Tuan 1", Description = "5 buoi tap buoi sang", TargetValue = 5, Unit = "buoi" },
-                new ChallengeStepDefinition { Title = "Tuan 2", Description = "5 buoi tiep theo", TargetValue = 5, Unit = "buoi" },
-                new ChallengeStepDefinition { Title = "Giai doan cuoi", Description = "5 buoi ve dich", TargetValue = 5, Unit = "buoi" }
+                new ChallengeStepDefinition { Title = "Tuần 1", Description = "5 buổi tập buổi sáng", TargetValue = 5, Unit = "buổi" },
+                new ChallengeStepDefinition { Title = "Tuần 2", Description = "5 buổi tiếp theo", TargetValue = 5, Unit = "buổi" },
+                new ChallengeStepDefinition { Title = "Giai đoạn cuối", Description = "5 buổi về đích", TargetValue = 5, Unit = "buổi" }
             }
         },
         new ChallengeDefinition
         {
             Id = "c6",
-            Title = "Thu Thach Plank Thep",
-            Description = "Plank tu 30 giay len 5 phut trong 30 ngay. Loi thep - Tinh than thep!",
-            Emoji = "🧱",
+            Title = "Thử Thách Vai Thép",
+            Description = "Thực hiện 500 cái shoulder press trong 30 ngày. Vai thép - Tinh thần thép!",
+            Emoji = "🏋️",
             Difficulty = "Hard",
             DurationDays = 30,
-            MedalTitle = "Huy Chuong Loi Thep",
-            MedalDescription = "Hoan thanh thu thach plank 30 ngay",
+            Metric = "shoulderPress",
+            MedalTitle = "Huy Chương Vai Thép",
+            MedalDescription = "Hoàn thành 500 shoulder press trong 30 ngày",
             Steps = new()
             {
-                new ChallengeStepDefinition { Title = "Tuan 1", Description = "Plank 30-60 giay/ngay", TargetValue = 7, Unit = "ngay" },
-                new ChallengeStepDefinition { Title = "Tuan 2", Description = "Tang len 1-2 phut/ngay", TargetValue = 7, Unit = "ngay" },
-                new ChallengeStepDefinition { Title = "Tuan 3-4", Description = "Chinh phuc 3-5 phut/ngay", TargetValue = 14, Unit = "ngay" }
+                new ChallengeStepDefinition { Title = "Tuần 1", Description = "Khởi động: 100 cái", TargetValue = 100, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 2", Description = "Tăng lên 150 cái", TargetValue = 150, Unit = "cái" },
+                new ChallengeStepDefinition { Title = "Tuần 3-4", Description = "Chinh phục 250 cái cuối", TargetValue = 250, Unit = "cái" }
             }
         }
     };
 
     public static ChallengeDefinition? Get(string id) => Definitions.FirstOrDefault(d => d.Id == id);
+
+    public static DateTime VietnamTime(DateTimeOffset value) =>
+        TimeZoneInfo.ConvertTime(value, TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh")).DateTime;
+
+    // Only correct-form reps counted by the camera advance rep challenges.
+    public static int CameraAmount(ChallengeDefinition def, IEnumerable<ExerciseSummary> exercises, DateTime localStart) => def.Metric switch
+    {
+        "session" => 1,
+        "morningSession" => localStart.Hour < 8 ? 1 : 0,
+        _ => exercises.Where(e => e.Exercise == def.Metric).Sum(e => e.CorrectReps)
+    };
 }

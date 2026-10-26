@@ -48,25 +48,4 @@ class ChallengeService {
       throw ApiException(response.statusCode, 'Lỗi từ bỏ thử thách');
     }
   }
-
-  Future<Map<String, dynamic>> updateProgress(String challengeId, int amount) async {
-    final response = await ApiClient.instance.post(
-      '/api/challenges/$challengeId/progress',
-      {'amount': amount},
-      includeAuth: true,
-    );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-
-    try {
-      final data = jsonDecode(response.body);
-      final msg = data['message']?.toString() ?? 'Lỗi cập nhật tiến độ';
-      throw ApiException(response.statusCode, msg);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException(response.statusCode, 'Lỗi cập nhật tiến độ (${response.statusCode})');
-    }
-  }
 }

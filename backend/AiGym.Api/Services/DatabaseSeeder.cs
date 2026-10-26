@@ -9,6 +9,7 @@ public static class DatabaseSeeder
 {
     public const string AdminEmail = "admin123@gmail.com";
     public const string AdminPassword = "123123123Az!";
+    public const string VirtualFriendPassword = "Test123!Aa";
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -62,6 +63,18 @@ public static class DatabaseSeeder
             await userManager.AddToRoleAsync(admin, "Admin");
         }
 
+        if (IsDevelopment(services) && string.IsNullOrWhiteSpace(admin.TrainingLocation))
+        {
+            admin.TrainingLocation = "Gym Quận 1";
+            admin.TrainingLevel ??= "Trung cấp";
+            await userManager.UpdateAsync(admin);
+        }
+
+        if (IsDevelopment(services))
+        {
+            await SeedVirtualFriendsAsync(context, userManager);
+        }
+
         if (!await context.Posts.AnyAsync())
         {
             context.Posts.AddRange(
@@ -101,5 +114,96 @@ public static class DatabaseSeeder
                 new Food { Name = "Banana", CaloriesPer100g = 89, ProteinPer100g = 1.1m, CarbsPer100g = 23, FatPer100g = .3m });
             await context.SaveChangesAsync();
         }
+    }
+
+    private static bool IsDevelopment(IServiceProvider services)
+        => services.GetRequiredService<IHostEnvironment>().IsDevelopment();
+
+    private static async Task SeedVirtualFriendsAsync(
+        ApplicationDbContext context,
+        UserManager<ApplicationUser> userManager)
+    {
+        var virtualFriends = new[]
+        {
+            new
+            {
+                Email = "banao1@aigym.test",
+                Name = "Nguyễn Minh Anh",
+                Location = "Gym Quận 1",
+                Level = "Trung cấp",
+                Goal = "Tăng cơ",
+                ChallengeId = "c4"
+            },
+            new
+            {
+                Email = "banao2@aigym.test",
+                Name = "Trần Quốc Bảo",
+                Location = "Gym Quận 1",
+                Level = "Nâng cao",
+                Goal = "Tăng sức mạnh",
+                ChallengeId = "c2"
+            },
+            new
+            {
+                Email = "banao3@aigym.test",
+                Name = "Lê Thu Hà",
+                Location = "Gym Quận 3",
+                Level = "Cơ bản",
+                Goal = "Giảm cân",
+                ChallengeId = "c1"
+            },
+            new
+            {
+                Email = "banao4@aigym.test",
+                Name = "Phạm Đức Long",
+                Location = "Gym Quận 7",
+                Level = "Trung cấp",
+                Goal = "Cải thiện thể lực",
+                ChallengeId = "c6"
+            }
+        };
+
+        foreach (var item in virtualFriends)
+        {
+            var user = await userManager.FindByEmailAsync(item.Email);
+            if (user is null)
+            {
+                user = new ApplicationUser
+                {
+                    UserName = item.Email,
+                    Email = item.Email,
+                    EmailConfirmed = true,
+                    FullName = item.Name,
+                    TrainingLocation = item.Location,
+                    TrainingLevel = item.Level,
+                    Goal = item.Goal
+                };
+                var result = await userManager.CreateAsync(user, VirtualFriendPassword);
+                if (!result.Succeeded)
+                {
+                    throw new InvalidOperationException(
+                        string.Join("; ", result.Errors.Select(error => error.Description)));
+                }
+                await userManager.AddToRoleAsync(user, "User");
+            }
+
+            if (!await context.UserChallenges.AnyAsync(challenge =>
+                    challenge.UserId == user.Id && challenge.ChallengeId == item.ChallengeId))
+            {
+                var definition = ChallengeCatalog.Get(item.ChallengeId);
+                context.UserChallenges.Add(new UserChallenge
+                {
+                    UserId = user.Id,
+                    ChallengeId = item.ChallengeId,
+                    CurrentStepIndex = definition?.Steps.Count ?? 1,
+                    CurrentProgress = definition?.Steps.Sum(step => step.TargetValue) ?? 1,
+                    IsCompleted = true,
+                    StartDate = DateTime.UtcNow.AddDays(-14),
+                    CompletedAt = DateTime.UtcNow.AddDays(-1)
+                });
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 }

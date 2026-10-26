@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import '../services/api_client.dart';
+import '../services/pose_rules.dart';
 import '../services/profile_service.dart';
 import '../models/workout.dart';
 
@@ -175,7 +176,7 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
               ((web.Event _) {
                 _send({
                   'type': 'aigym:configure',
-                  'exercise': widget.exercise?.id,
+                  'exercise': poseExerciseFor(widget.exercise?.id),
                 });
               }).toJS,
             );

@@ -17,7 +17,17 @@ public sealed class NotificationScheduler(ApplicationDbContext db)
             foreach (var (kind, utc) in ReminderSchedule.Occurrences(s, from, utcNow))
             {
                 var id = ReminderSchedule.EventId(s.UserId, kind, utc);
-                var (title, body) = ReminderSchedule.Copy(kind);
+                var completedToday = false;
+                if (kind == "workout")
+                {
+                    var zone = TimeZoneInfo.FindSystemTimeZoneById(s.TimeZone);
+                    var today = TimeZoneInfo.ConvertTimeFromUtc(utcNow, zone).Date;
+                    var start = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(today, zone));
+                    var end = new DateTimeOffset(utcNow);
+                    completedToday = await db.WorkoutSessions.AnyAsync(w => w.UserId == s.UserId &&
+                        w.StartedAt >= start && w.StartedAt <= end && w.DurationSeconds > 0);
+                }
+                var (title, body) = ReminderSchedule.Copy(kind, s.BotRoastEnabled, completedToday);
                 if (db.Database.IsSqlServer())
                 {
                     await db.Database.ExecuteSqlInterpolatedAsync($"""

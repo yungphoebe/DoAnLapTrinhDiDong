@@ -12,6 +12,8 @@ public static class NotificationSchema
           WaterEnabled bit NOT NULL, WaterStartMinute int NOT NULL, WaterEndMinute int NOT NULL, WaterIntervalMinutes int NOT NULL,
           WeeklyEnabled bit NOT NULL, WeeklyDay int NOT NULL, WeeklyMinute int NOT NULL, TimeZone nvarchar(100) NOT NULL,
           Revision bigint NOT NULL, UpdatedAt datetime2 NOT NULL, LastProcessedUtc datetime2 NOT NULL);
+        IF COL_LENGTH(N'dbo.ReminderSettings', N'BotRoastEnabled') IS NULL
+          ALTER TABLE dbo.ReminderSettings ADD BotRoastEnabled bit NOT NULL CONSTRAINT DF_ReminderSettings_BotRoastEnabled DEFAULT 0;
         IF OBJECT_ID(N'dbo.UserNotifications', N'U') IS NULL
         BEGIN
           CREATE TABLE dbo.UserNotifications (

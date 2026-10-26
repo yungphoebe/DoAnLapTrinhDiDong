@@ -34,9 +34,11 @@ public static class ReminderSchedule
     public static Guid EventId(string userId, string kind, DateTime utc) => new(
         SHA256.HashData(Encoding.UTF8.GetBytes($"{userId.Length}:{userId}|{kind}|{utc.Ticks}"))[..16]);
 
-    public static (string Title, string Body) Copy(string kind) => kind switch
+    public static (string Title, string Body) Copy(string kind, bool roast = false, bool completedToday = false) => kind switch
     {
-        "workout" => ("Đến giờ tập luyện", "Dành thời gian cho buổi tập hôm nay. Chạm để xem lịch tập."),
+        "workout" when completedToday => ("GYM BUDDY chúc mừng!", "Hôm nay bạn đã tập rồi! Giỏi lắm, dành thời gian nghỉ ngơi và hồi phục nhé."),
+        "workout" when roast => ("GYM BUDDY đang réo", "Đừng để chiếc ghế thắng bạn! Lướt điện thoại đủ rồi, dậy tập 5 phút coi."),
+        "workout" => ("GYM BUDDY nhắc bạn", "Đến giờ tập rồi! Bắt đầu với 5 phút nhé. Bot luôn cổ vũ bạn!"),
         "water" => ("Nhắc uống nước", "Đến giờ nghỉ một chút và uống nước. Chạm để xem lịch nhắc."),
         _ => ("Báo cáo tuần", "Nhìn lại tuần vừa qua. Chạm để mở báo cáo tuần.")
     };

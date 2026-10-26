@@ -59,7 +59,7 @@ public sealed class ProfileController : ControllerBase
         var exercises = request.Exercises ?? [];
         var feedback = request.FeedbackCounts ?? [];
         if (exercises.Length > 3 || exercises.Any(item => item is null ||
-                item.Exercise is not ("squat" or "pushup" or "jumpingJack") ||
+                item.Exercise is not ("squat" or "pushup" or "jumpingJack" or "shoulderPress" or "bicepsCurl") ||
                 item.Reps is < 0 or > 100000 || item.CorrectReps is < 0 or > 100000 ||
                 item.IncorrectReps is < 0 or > 100000 || item.Reps != item.CorrectReps + item.IncorrectReps) ||
             exercises.Select(item => item.Exercise).Distinct().Count() != exercises.Length ||
@@ -76,6 +76,10 @@ public sealed class ProfileController : ControllerBase
             StartedAt = request.StartedAt.ToUniversalTime(), DurationSeconds = request.DurationSeconds,
             ExercisesJson = exercisesJson, FeedbackCountsJson = feedbackJson
         });
+        var localStart = ChallengeCatalog.VietnamTime(request.StartedAt);
+        foreach (var challenge in await _context.UserChallenges.Where(x => x.UserId == user.Id && !x.IsCompleted).ToListAsync())
+            if (ChallengeCatalog.Get(challenge.ChallengeId) is { } def)
+                challenge.AddProgress(def, ChallengeCatalog.CameraAmount(def, exercises, localStart), localStart.ToString("yyyy-MM-dd"));
         try
         {
             await _context.SaveChangesAsync();

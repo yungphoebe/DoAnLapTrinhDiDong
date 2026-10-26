@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'api.dart';
 import 'models.dart';
+import 'training_bot_copy.dart';
 import 'platform_contract.dart';
 
 NotificationPlatform createNotificationPlatform(NotificationApi api) =>
@@ -146,12 +147,13 @@ class NativeNotificationPlatform implements NotificationPlatform {
         id: base + day * 1500 + minute,
         scheduledDate: at,
         title: switch (kind) {
-          'workout' => 'Đến giờ tập luyện',
+          'workout' => 'GYM BUDDY nhắc bạn',
           'water' => 'Nhắc uống nước',
           _ => 'Báo cáo tuần',
         },
-        body:
-            'Chạm để mở ${switch (kind) {
+        body: kind == 'workout'
+            ? scheduledWorkoutMessage(roast: settings.botRoastEnabled)
+            : 'Chạm để mở ${switch (kind) {
               'workout' => 'lịch tập',
               'water' => 'lịch uống nước',
               _ => 'báo cáo tuần',

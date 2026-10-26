@@ -164,7 +164,7 @@ void main() {
   test('notification links use only recognized destinations', () {
     expect(
       NotificationLink(owner: 'a', kind: 'workout').route,
-      startsWith('/workouts'),
+      '/camera',
     );
     expect(
       NotificationLink(owner: 'a', kind: 'water').route,

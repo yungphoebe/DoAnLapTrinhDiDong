@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import '../services/api_client.dart';
 import '../ui.dart';
 import '../support/share_medal_sheet.dart';
@@ -41,7 +43,8 @@ class FriendUser {
       email: json['email']?.toString() ?? '',
       trainingLevel: json['trainingLevel']?.toString(),
       goal: json['goal']?.toString(),
-      completedChallengesCount: (json['completedChallengesCount'] as num?)?.toInt() ?? 0,
+      completedChallengesCount:
+          (json['completedChallengesCount'] as num?)?.toInt() ?? 0,
       wonDuelsCount: (json['wonDuelsCount'] as num?)?.toInt() ?? 0,
       activeDuelsCount: (json['activeDuelsCount'] as num?)?.toInt() ?? 0,
       status: json['status']?.toString() ?? 'None',
@@ -77,7 +80,9 @@ class FriendRequest {
       email: json['email']?.toString() ?? '',
       trainingLevel: json['trainingLevel']?.toString(),
       isIncoming: json['isIncoming'] == true,
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }
@@ -168,7 +173,9 @@ class MedalCompareItemModel {
       myEarned: json['myEarned'] == true,
       myEarnedAt: DateTime.tryParse(json['myEarnedAt']?.toString() ?? ''),
       friendEarned: json['friendEarned'] == true,
-      friendEarnedAt: DateTime.tryParse(json['friendEarnedAt']?.toString() ?? ''),
+      friendEarnedAt: DateTime.tryParse(
+        json['friendEarnedAt']?.toString() ?? '',
+      ),
     );
   }
 }
@@ -209,8 +216,11 @@ class MedalCompareModel {
       friendName: json['friendName']?.toString() ?? 'Bạn bè',
       friendTotalPoints: (json['friendTotalPoints'] as num?)?.toInt() ?? 0,
       friendMedalsCount: (json['friendMedalsCount'] as num?)?.toInt() ?? 0,
-      totalAvailableMedals: (json['totalAvailableMedals'] as num?)?.toInt() ?? 6,
-      items: list.map((e) => MedalCompareItemModel.fromJson(e as Map<String, dynamic>)).toList(),
+      totalAvailableMedals:
+          (json['totalAvailableMedals'] as num?)?.toInt() ?? 6,
+      items: list
+          .map((e) => MedalCompareItemModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -262,36 +272,46 @@ class SocialCompetitionService {
     final res = await ApiClient.instance.get('/api/friends', includeAuth: true);
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final List list = jsonDecode(res.body);
-      return list.map((e) => FriendUser.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => FriendUser.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     throw ApiException(res.statusCode, _extractMessage(res));
   }
 
   Future<List<FriendRequest>> getFriendRequests() async {
-    final res = await ApiClient.instance.get('/api/friends/requests', includeAuth: true);
+    final res = await ApiClient.instance.get(
+      '/api/friends/requests',
+      includeAuth: true,
+    );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final List list = jsonDecode(res.body);
-      return list.map((e) => FriendRequest.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => FriendRequest.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     throw ApiException(res.statusCode, _extractMessage(res));
   }
 
   Future<List<FriendUser>> searchUsers(String query) async {
     final encoded = Uri.encodeQueryComponent(query.trim());
-    final res = await ApiClient.instance.get('/api/friends/search?q=$encoded', includeAuth: true);
+    final res = await ApiClient.instance.get(
+      '/api/friends/search?q=$encoded',
+      includeAuth: true,
+    );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final List list = jsonDecode(res.body);
-      return list.map((e) => FriendUser.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => FriendUser.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     throw ApiException(res.statusCode, _extractMessage(res));
   }
 
   Future<String> sendFriendRequest(String targetUserId) async {
-    final res = await ApiClient.instance.post(
-      '/api/friends/request',
-      {'targetUserId': targetUserId},
-      includeAuth: true,
-    );
+    final res = await ApiClient.instance.post('/api/friends/request', {
+      'targetUserId': targetUserId,
+    }, includeAuth: true);
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final data = jsonDecode(res.body);
       return data['message']?.toString() ?? 'Đã gửi lời mời!';
@@ -338,16 +358,24 @@ class SocialCompetitionService {
   }
 
   Future<List<MedalModel>> getMyMedals() async {
-    final res = await ApiClient.instance.get('/api/medals/my', includeAuth: true);
+    final res = await ApiClient.instance.get(
+      '/api/medals/my',
+      includeAuth: true,
+    );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final List list = jsonDecode(res.body);
-      return list.map((e) => MedalModel.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => MedalModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     throw ApiException(res.statusCode, _extractMessage(res));
   }
 
   Future<MedalCompareModel> compareMedals(String friendId) async {
-    final res = await ApiClient.instance.get('/api/medals/compare/$friendId', includeAuth: true);
+    final res = await ApiClient.instance.get(
+      '/api/medals/compare/$friendId',
+      includeAuth: true,
+    );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final data = jsonDecode(res.body);
       return MedalCompareModel.fromJson(data as Map<String, dynamic>);
@@ -355,12 +383,24 @@ class SocialCompetitionService {
     throw ApiException(res.statusCode, _extractMessage(res));
   }
 
-  Future<List<MedalLeaderboardUser>> getMedalLeaderboard({bool friendsOnly = false}) async {
-    final scope = friendsOnly ? 'friends' : 'all';
-    final res = await ApiClient.instance.get('/api/medals/leaderboard?scope=$scope', includeAuth: true);
+  Future<List<MedalLeaderboardUser>> getMedalLeaderboard({
+    bool friendsOnly = false,
+    bool localOnly = false,
+  }) async {
+    final scope = localOnly
+        ? 'local'
+        : friendsOnly
+        ? 'friends'
+        : 'all';
+    final res = await ApiClient.instance.get(
+      '/api/medals/leaderboard?scope=$scope',
+      includeAuth: true,
+    );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final List list = jsonDecode(res.body);
-      return list.map((e) => MedalLeaderboardUser.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => MedalLeaderboardUser.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     throw ApiException(res.statusCode, _extractMessage(res));
   }
@@ -384,7 +424,8 @@ class FriendsCompetitionScreen extends StatefulWidget {
   const FriendsCompetitionScreen({super.key});
 
   @override
-  State<FriendsCompetitionScreen> createState() => _FriendsCompetitionScreenState();
+  State<FriendsCompetitionScreen> createState() =>
+      _FriendsCompetitionScreenState();
 }
 
 class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
@@ -404,6 +445,7 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
   bool _loadingCompare = false;
   List<MedalLeaderboardUser> _medalLeaderboard = [];
   bool _medalLeaderboardFriendsOnly = true;
+  bool _medalLeaderboardLocalOnly = false;
   int _medalSubTab = 0; // 0: So Sánh, 1: Bộ Sưu Tập, 2: BXH
 
   // Search tab
@@ -438,7 +480,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         _service.getFriends(),
         _service.getFriendRequests(),
         _service.getMyMedals(),
-        _service.getMedalLeaderboard(friendsOnly: _medalLeaderboardFriendsOnly),
+        _service.getMedalLeaderboard(
+          friendsOnly: _medalLeaderboardFriendsOnly,
+          localOnly: _medalLeaderboardLocalOnly,
+        ),
       ]);
 
       if (mounted) {
@@ -455,7 +500,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           if (_selectedCompareFriend == null) {
             _selectCompareFriend(friends.first);
           } else {
-            final exists = friends.any((f) => f.id == _selectedCompareFriend!.id);
+            final exists = friends.any(
+              (f) => f.id == _selectedCompareFriend!.id,
+            );
             if (exists) {
               _selectCompareFriend(_selectedCompareFriend!);
             } else {
@@ -532,7 +579,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: GymColors.surface,
-        title: const Text('Xác nhận hủy kết bạn', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Xác nhận hủy kết bạn',
+          style: TextStyle(color: Colors.white),
+        ),
         content: Text('Bạn có chắc chắn muốn hủy kết bạn với $name?'),
         actions: [
           TextButton(
@@ -541,7 +591,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Đồng ý', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Đồng ý',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -621,7 +674,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           indicatorColor: GymColors.purple,
           labelColor: GymColors.purple,
           unselectedLabelColor: GymColors.muted,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
           tabs: [
             Tab(
               icon: const Icon(Icons.military_tech, size: 20),
@@ -639,7 +695,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         ),
       ),
       body: _loading && _friends.isEmpty && _myMedals.isEmpty
-          ? const Center(child: CircularProgressIndicator(color: GymColors.purple))
+          ? const Center(
+              child: CircularProgressIndicator(color: GymColors.purple),
+            )
           : Column(
               children: [
                 _buildTopStatsBanner(),
@@ -660,7 +718,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
 
   Widget _buildTopStatsBanner() {
     final earnedMedalsCount = _myMedals.where((m) => m.earned).length;
-    final myTotalPoints = _myMedals.where((m) => m.earned).fold<int>(0, (s, m) => s + m.points);
+    final myTotalPoints = _myMedals
+        .where((m) => m.earned)
+        .fold<int>(0, (s, m) => s + m.points);
     final myRankIndex = _medalLeaderboard.indexWhere((u) => u.isCurrentUser);
     final myRank = myRankIndex >= 0 ? _medalLeaderboard[myRankIndex].rank : 1;
 
@@ -679,7 +739,8 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           _buildStatCard(
             icon: Icons.military_tech,
             label: 'Huy chương',
-            value: '$earnedMedalsCount/${_myMedals.isNotEmpty ? _myMedals.length : 6}',
+            value:
+                '$earnedMedalsCount/${_myMedals.isNotEmpty ? _myMedals.length : 6}',
             color: const Color(0xFFFFD700),
           ),
           const SizedBox(width: 8),
@@ -691,7 +752,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           ),
           const SizedBox(width: 8),
           _buildStatCard(
-            icon: _requests.isNotEmpty ? Icons.mail_outline : Icons.leaderboard_outlined,
+            icon: _requests.isNotEmpty
+                ? Icons.mail_outline
+                : Icons.leaderboard_outlined,
             label: _requests.isNotEmpty ? 'Lời mời' : 'Thứ hạng',
             value: _requests.isNotEmpty ? '${_requests.length}' : '#$myRank',
             color: const Color(0xFFFACC15),
@@ -751,8 +814,6 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
     );
   }
 
-
-
   Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
@@ -760,7 +821,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ],
     );
@@ -778,11 +843,16 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           if (_requests.where((r) => r.isIncoming).isNotEmpty) ...[
             _buildSectionHeader('Lời Mời Kết Bạn Mới', Icons.person_add),
             const SizedBox(height: 10),
-            ..._requests.where((r) => r.isIncoming).map((req) => _buildIncomingRequestCard(req)),
+            ..._requests
+                .where((r) => r.isIncoming)
+                .map((req) => _buildIncomingRequestCard(req)),
             const SizedBox(height: 20),
           ],
 
-          _buildSectionHeader('Danh Sách Bạn Bè (${_friends.length})', Icons.people),
+          _buildSectionHeader(
+            'Danh Sách Bạn Bè (${_friends.length})',
+            Icons.people,
+          ),
           const SizedBox(height: 10),
 
           if (_friends.isEmpty)
@@ -815,7 +885,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             backgroundColor: GymColors.purple.withValues(alpha: 0.3),
             child: Text(
               req.fullName.isNotEmpty ? req.fullName[0].toUpperCase() : '?',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -823,8 +896,17 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(req.fullName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                Text(req.email, style: const TextStyle(fontSize: 11, color: GymColors.muted)),
+                Text(
+                  req.fullName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  req.email,
+                  style: const TextStyle(fontSize: 11, color: GymColors.muted),
+                ),
               ],
             ),
           ),
@@ -856,8 +938,14 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             radius: 22,
             backgroundColor: GymColors.purple.withValues(alpha: 0.25),
             child: Text(
-              friend.fullName.isNotEmpty ? friend.fullName[0].toUpperCase() : '?',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+              friend.fullName.isNotEmpty
+                  ? friend.fullName[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 16,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -865,11 +953,20 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(friend.fullName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(
+                  friend.fullName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   '${friend.completedChallengesCount} huy chương đã đạt',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFFFD700)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFFFD700),
+                  ),
                 ),
               ],
             ),
@@ -879,10 +976,15 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
               backgroundColor: GymColors.purple,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             icon: const Icon(Icons.military_tech, size: 16),
-            label: const Text('So Sánh HC', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: const Text(
+              'So Sánh HC',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
             onPressed: () {
               _selectCompareFriend(friend);
               setState(() => _medalSubTab = 0);
@@ -900,7 +1002,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             itemBuilder: (_) => [
               const PopupMenuItem(
                 value: 'unfriend',
-                child: Text('Hủy kết bạn', style: TextStyle(color: Colors.redAccent)),
+                child: Text(
+                  'Hủy kết bạn',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
               ),
             ],
           ),
@@ -946,7 +1051,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: GymColors.purple,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: _searchUsers,
                 child: const Text('Tìm'),
@@ -957,16 +1064,24 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         const SizedBox(height: 20),
 
         if (_isSearching)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(color: GymColors.purple),
-          ))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(color: GymColors.purple),
+            ),
+          )
         else if (_searchResults.isNotEmpty) ...[
-          Text('Kết quả tìm kiếm (${_searchResults.length}):', style: const TextStyle(color: GymColors.muted)),
+          Text(
+            'Kết quả tìm kiếm (${_searchResults.length}):',
+            style: const TextStyle(color: GymColors.muted),
+          ),
           const SizedBox(height: 10),
           ..._searchResults.map((user) => _buildSearchResultCard(user)),
         ] else if (_searchCtrl.text.trim().isNotEmpty) ...[
-          _buildEmptyCard('Không tìm thấy ai phù hợp', 'Hãy thử tìm bằng email hoặc từ khóa khác nhé!')
+          _buildEmptyCard(
+            'Không tìm thấy ai phù hợp',
+            'Hãy thử tìm bằng email hoặc từ khóa khác nhé!',
+          ),
         ] else ...[
           Container(
             padding: const EdgeInsets.all(16),
@@ -980,17 +1095,36 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
               children: [
                 Row(
                   children: [
-                    Icon(Icons.lightbulb_outline, color: Color(0xFFFACC15), size: 20),
+                    Icon(
+                      Icons.lightbulb_outline,
+                      color: Color(0xFFFACC15),
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
-                    Text('Mẹo kết bạn:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(
+                      'Mẹo kết bạn:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: 8),
-                Text('• Tìm bạn bè qua địa chỉ email hoặc tên đầy đủ khi đăng ký tài khoản.', style: TextStyle(fontSize: 12, color: GymColors.muted)),
+                Text(
+                  '• Tìm bạn bè qua địa chỉ email hoặc tên đầy đủ khi đăng ký tài khoản.',
+                  style: TextStyle(fontSize: 12, color: GymColors.muted),
+                ),
                 SizedBox(height: 4),
-                Text('• Kết bạn để cùng nhau tham gia các thử thách Gym và thi đua xem ai hoàn thành mục tiêu trước!', style: TextStyle(fontSize: 12, color: GymColors.muted)),
+                Text(
+                  '• Kết bạn để cùng nhau tham gia các thử thách Gym và thi đua xem ai hoàn thành mục tiêu trước!',
+                  style: TextStyle(fontSize: 12, color: GymColors.muted),
+                ),
                 SizedBox(height: 4),
-                Text('• Điểm chiến binh tích lũy sẽ giúp bạn thăng hạng trên Bảng Xếp Hạng Challenger!', style: TextStyle(fontSize: 12, color: GymColors.muted)),
+                Text(
+                  '• Điểm chiến binh tích lũy sẽ giúp bạn thăng hạng trên Bảng Xếp Hạng Challenger!',
+                  style: TextStyle(fontSize: 12, color: GymColors.muted),
+                ),
               ],
             ),
           ),
@@ -1008,7 +1142,14 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           color: GymColors.green.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('Bạn bè', style: TextStyle(fontSize: 12, color: GymColors.green, fontWeight: FontWeight.bold)),
+        child: const Text(
+          'Bạn bè',
+          style: TextStyle(
+            fontSize: 12,
+            color: GymColors.green,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       );
     } else if (user.status == 'PendingOutgoing') {
       actionWidget = Container(
@@ -1017,7 +1158,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           color: Colors.amber.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text('Đã gửi lời mời', style: TextStyle(fontSize: 12, color: Colors.amber)),
+        child: const Text(
+          'Đã gửi lời mời',
+          style: TextStyle(fontSize: 12, color: Colors.amber),
+        ),
       );
     } else if (user.status == 'PendingIncoming') {
       actionWidget = ElevatedButton(
@@ -1043,7 +1187,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         icon: const Icon(Icons.person_add, size: 16),
-        label: const Text('Kết bạn', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Kết bạn',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
         onPressed: () => _sendFriendRequest(user),
       );
     }
@@ -1063,7 +1210,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             backgroundColor: GymColors.purple.withValues(alpha: 0.25),
             child: Text(
               user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : '?',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1071,8 +1221,17 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                Text(user.email, style: const TextStyle(fontSize: 11, color: GymColors.muted)),
+                Text(
+                  user.fullName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  user.email,
+                  style: const TextStyle(fontSize: 11, color: GymColors.muted),
+                ),
               ],
             ),
           ),
@@ -1082,7 +1241,12 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
     );
   }
 
-  Widget _buildEmptyCard(String title, String subtitle, {String? actionLabel, VoidCallback? onAction}) {
+  Widget _buildEmptyCard(
+    String title,
+    String subtitle, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
@@ -1094,7 +1258,14 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         children: [
           const Icon(Icons.sports_score, size: 40, color: GymColors.muted),
           const SizedBox(height: 10),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             subtitle,
@@ -1107,7 +1278,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: GymColors.purple,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: onAction,
               child: Text(actionLabel),
@@ -1182,7 +1355,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                   title,
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     color: isSelected ? Colors.white : GymColors.muted,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -1217,11 +1392,19 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           ),
           child: Row(
             children: [
-              const Icon(Icons.person_search, color: GymColors.purple, size: 20),
+              const Icon(
+                Icons.person_search,
+                color: GymColors.purple,
+                size: 20,
+              ),
               const SizedBox(width: 10),
               const Text(
                 'Đối thủ:',
-                style: TextStyle(fontSize: 13, color: GymColors.muted, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: GymColors.muted,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1230,7 +1413,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                     value: _selectedCompareFriend?.id,
                     isExpanded: true,
                     dropdownColor: GymColors.surface,
-                    hint: const Text('Chọn bạn bè...', style: TextStyle(color: GymColors.muted, fontSize: 13)),
+                    hint: const Text(
+                      'Chọn bạn bè...',
+                      style: TextStyle(color: GymColors.muted, fontSize: 13),
+                    ),
                     items: _friends.map((f) {
                       return DropdownMenuItem(
                         value: f.id,
@@ -1238,23 +1424,39 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                           children: [
                             CircleAvatar(
                               radius: 12,
-                              backgroundColor: GymColors.purple.withValues(alpha: 0.3),
+                              backgroundColor: GymColors.purple.withValues(
+                                alpha: 0.3,
+                              ),
                               child: Text(
-                                f.fullName.isNotEmpty ? f.fullName[0].toUpperCase() : '?',
-                                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                f.fullName.isNotEmpty
+                                    ? f.fullName[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 f.fullName,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             Text(
                               '${f.completedChallengesCount} HC',
-                              style: const TextStyle(color: Color(0xFFFFD700), fontSize: 11, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Color(0xFFFFD700),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -1277,19 +1479,26 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         if (_loadingCompare)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator(color: GymColors.purple)),
+            child: Center(
+              child: CircularProgressIndicator(color: GymColors.purple),
+            ),
           )
         else if (_compareData != null) ...[
           _buildScoreComparisonCard(_compareData!),
           const SizedBox(height: 20),
           _buildSectionHeader('Bảng So Sánh 6 Huy Chương', Icons.military_tech),
           const SizedBox(height: 10),
-          ..._compareData!.items.map((item) => _buildMedalCompareItemCard(item)),
+          ..._compareData!.items.map(
+            (item) => _buildMedalCompareItemCard(item),
+          ),
         ] else
           const Center(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: Text('Vui lòng chọn 1 người bạn để bắt đầu so sánh huy chương!', style: TextStyle(color: GymColors.muted)),
+              child: Text(
+                'Vui lòng chọn 1 người bạn để bắt đầu so sánh huy chương!',
+                style: TextStyle(color: GymColors.muted),
+              ),
             ),
           ),
       ],
@@ -1302,21 +1511,22 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
     final diffPoints = (data.myTotalPoints - data.friendTotalPoints).abs();
 
     final totalPointsSum = data.myTotalPoints + data.friendTotalPoints;
-    final myRatio = totalPointsSum > 0 ? (data.myTotalPoints / totalPointsSum) : 0.5;
+    final myRatio = totalPointsSum > 0
+        ? (data.myTotalPoints / totalPointsSum)
+        : 0.5;
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            GymColors.purple.withValues(alpha: 0.25),
-            GymColors.surface,
-          ],
+          colors: [GymColors.purple.withValues(alpha: 0.25), GymColors.surface],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isAhead ? GymColors.purple : (isBehind ? const Color(0xFFFACC15) : GymColors.border),
+          color: isAhead
+              ? GymColors.purple
+              : (isBehind ? const Color(0xFFFACC15) : GymColors.border),
           width: 1.5,
         ),
       ),
@@ -1334,8 +1544,14 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor: GymColors.purple.withValues(alpha: 0.35),
-                          child: const Icon(Icons.person, color: Colors.white, size: 28),
+                          backgroundColor: GymColors.purple.withValues(
+                            alpha: 0.35,
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                         if (isAhead)
                           const Positioned(
@@ -1348,25 +1564,39 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                     const SizedBox(height: 6),
                     Text(
                       data.myName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: GymColors.purple.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '${data.myTotalPoints} pts',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${data.myMedalsCount}/${data.totalAvailableMedals} huy chương',
-                      style: const TextStyle(color: GymColors.muted, fontSize: 10),
+                      style: const TextStyle(
+                        color: GymColors.muted,
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -1377,7 +1607,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: GymColors.background,
                         borderRadius: BorderRadius.circular(12),
@@ -1385,16 +1618,26 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                       ),
                       child: const Text(
                         'VS',
-                        style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD700), fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFFFD700),
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: isAhead
                             ? GymColors.green.withValues(alpha: 0.15)
-                            : (isBehind ? const Color(0xFFFACC15).withValues(alpha: 0.15) : GymColors.purple.withValues(alpha: 0.15)),
+                            : (isBehind
+                                  ? const Color(0xFFFACC15)
+                                        .withValues(alpha: 0.15)
+                                  : GymColors.purple.withValues(alpha: 0.15)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1404,7 +1647,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: isAhead ? GymColors.green : (isBehind ? const Color(0xFFFACC15) : Colors.white),
+                          color: isAhead
+                              ? GymColors.green
+                              : (isBehind
+                                    ? const Color(0xFFFACC15)
+                                    : Colors.white),
                         ),
                       ),
                     ),
@@ -1420,10 +1667,17 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                          backgroundColor: const Color(0xFF38BDF8)
+                              .withValues(alpha: 0.2),
                           child: Text(
-                            data.friendName.isNotEmpty ? data.friendName[0].toUpperCase() : '?',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF38BDF8), fontSize: 20),
+                            data.friendName.isNotEmpty
+                                ? data.friendName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF38BDF8),
+                              fontSize: 20,
+                            ),
                           ),
                         ),
                         if (isBehind)
@@ -1437,25 +1691,39 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                     const SizedBox(height: 6),
                     Text(
                       data.friendName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '${data.friendTotalPoints} pts',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF38BDF8), fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF38BDF8),
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${data.friendMedalsCount}/${data.totalAvailableMedals} huy chương',
-                      style: const TextStyle(color: GymColors.muted, fontSize: 10),
+                      style: const TextStyle(
+                        color: GymColors.muted,
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -1487,8 +1755,14 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${(myRatio * 100).round()}% thế trận của bạn', style: const TextStyle(fontSize: 10, color: GymColors.muted)),
-              Text('${((1 - myRatio) * 100).round()}% của đối thủ', style: const TextStyle(fontSize: 10, color: GymColors.muted)),
+              Text(
+                '${(myRatio * 100).round()}% thế trận của bạn',
+                style: const TextStyle(fontSize: 10, color: GymColors.muted),
+              ),
+              Text(
+                '${((1 - myRatio) * 100).round()}% của đối thủ',
+                style: const TextStyle(fontSize: 10, color: GymColors.muted),
+              ),
             ],
           ),
         ],
@@ -1517,7 +1791,8 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
     String advantageNote;
     Color advantageColor;
     if (item.myEarned && !item.friendEarned) {
-      advantageNote = '🔥 Bạn đang dẫn trước ở huy chương này (+${item.points} pts)';
+      advantageNote =
+          '🔥 Bạn đang dẫn trước ở huy chương này (+${item.points} pts)';
       advantageColor = GymColors.purple;
     } else if (!item.myEarned && item.friendEarned) {
       advantageNote = '⚠️ Đối thủ đã chinh phục! Cố lên để san bằng điểm!';
@@ -1555,11 +1830,18 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                   children: [
                     Text(
                       item.medalTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
                     ),
                     Text(
                       item.challengeTitle,
-                      style: const TextStyle(fontSize: 11, color: GymColors.muted),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: GymColors.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -1572,7 +1854,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                 ),
                 child: Text(
                   difficultyLabel,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: difficultyColor),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: difficultyColor,
+                  ),
                 ),
               ),
             ],
@@ -1601,15 +1887,23 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                     children: [
                       const Text(
                         'Tôi',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
                           Icon(
-                            item.myEarned ? Icons.check_circle : Icons.lock_outline,
+                            item.myEarned
+                                ? Icons.check_circle
+                                : Icons.lock_outline,
                             size: 15,
-                            color: item.myEarned ? GymColors.green : GymColors.muted,
+                            color: item.myEarned
+                                ? GymColors.green
+                                : GymColors.muted,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -1617,7 +1911,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: item.myEarned ? GymColors.green : GymColors.muted,
+                              color: item.myEarned
+                                  ? GymColors.green
+                                  : GymColors.muted,
                             ),
                           ),
                         ],
@@ -1626,7 +1922,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                         const SizedBox(height: 2),
                         Text(
                           _formatDate(item.myEarnedAt),
-                          style: const TextStyle(fontSize: 10, color: GymColors.muted),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: GymColors.muted,
+                          ),
                         ),
                       ],
                     ],
@@ -1655,16 +1954,24 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                     children: [
                       Text(
                         _compareData?.friendName ?? 'Bạn bè',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
                           Icon(
-                            item.friendEarned ? Icons.check_circle : Icons.lock_outline,
+                            item.friendEarned
+                                ? Icons.check_circle
+                                : Icons.lock_outline,
                             size: 15,
-                            color: item.friendEarned ? const Color(0xFF38BDF8) : GymColors.muted,
+                            color: item.friendEarned
+                                ? const Color(0xFF38BDF8)
+                                : GymColors.muted,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -1672,7 +1979,9 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: item.friendEarned ? const Color(0xFF38BDF8) : GymColors.muted,
+                              color: item.friendEarned
+                                  ? const Color(0xFF38BDF8)
+                                  : GymColors.muted,
                             ),
                           ),
                         ],
@@ -1681,7 +1990,10 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                         const SizedBox(height: 2),
                         Text(
                           _formatDate(item.friendEarnedAt),
-                          style: const TextStyle(fontSize: 10, color: GymColors.muted),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: GymColors.muted,
+                          ),
                         ),
                       ],
                     ],
@@ -1702,7 +2014,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             ),
             child: Text(
               advantageNote,
-              style: TextStyle(fontSize: 11, color: advantageColor, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 11,
+                color: advantageColor,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -1737,24 +2053,42 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Bộ Sưu Tập Huy Chương', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    const Text(
+                      'Bộ Sưu Tập Huy Chương',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       'Đã mở khóa: ${earnedList.length} / ${_myMedals.length} huy chương',
-                      style: const TextStyle(fontSize: 12, color: GymColors.muted),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: GymColors.muted,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                            color: const Color(0xFFFFD700)
+                                .withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '$totalPoints Điểm Danh Dự',
-                            style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
@@ -1766,11 +2100,16 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           ),
         ),
         const SizedBox(height: 18),
-        _buildSectionHeader('Tất Cả Huy Chương (${_myMedals.length})', Icons.military_tech_outlined),
+        _buildSectionHeader(
+          'Tất Cả Huy Chương (${_myMedals.length})',
+          Icons.military_tech_outlined,
+        ),
         const SizedBox(height: 10),
 
         if (_myMedals.isEmpty)
-          const Center(child: CircularProgressIndicator(color: GymColors.purple))
+          const Center(
+            child: CircularProgressIndicator(color: GymColors.purple),
+          )
         else
           ..._myMedals.map((medal) => _buildSingleMedalCard(medal)),
       ],
@@ -1808,13 +2147,12 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: medal.earned ? const Color(0xFFFFD700).withValues(alpha: 0.15) : GymColors.background,
+              color: medal.earned
+                  ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                  : GymColors.background,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              medal.emoji,
-              style: const TextStyle(fontSize: 32),
-            ),
+            child: Text(medal.emoji, style: const TextStyle(fontSize: 32)),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1835,14 +2173,21 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: difficultyColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         '+${medal.points} pts',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: difficultyColor),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: difficultyColor,
+                        ),
                       ),
                     ),
                   ],
@@ -1862,20 +2207,26 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                           Icon(
                             medal.earned ? Icons.verified : Icons.lock_outline,
                             size: 14,
-                            color: medal.earned ? GymColors.green : GymColors.muted,
+                            color: medal.earned
+                                ? GymColors.green
+                                : GymColors.muted,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               medal.earned
                                   ? (medal.earnedAt != null
-                                      ? 'Đã đạt ngày ${_formatDate(medal.earnedAt)}'
-                                      : 'Đã hoàn thành!')
+                                        ? 'Đã đạt ngày ${_formatDate(medal.earnedAt)}'
+                                        : 'Đã hoàn thành!')
                                   : 'Chưa mở khóa (${medal.completedSteps}/${medal.totalSteps} bước)',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: medal.earned ? GymColors.green : GymColors.muted,
-                                fontWeight: medal.earned ? FontWeight.bold : FontWeight.normal,
+                                color: medal.earned
+                                    ? GymColors.green
+                                    : GymColors.muted,
+                                fontWeight: medal.earned
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1892,20 +2243,31 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                           medalDescription: medal.medalDescription,
                           emoji: medal.emoji,
                           color: const Color(0xFFFFD700),
-                          earnedDate: medal.earnedAt != null ? _formatDate(medal.earnedAt) : null,
+                          earnedDate: medal.earnedAt != null
+                              ? _formatDate(medal.earnedAt)
+                              : null,
                         ),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: GymColors.purple.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: GymColors.purple.withValues(alpha: 0.4)),
+                            border: Border.all(
+                              color: GymColors.purple.withValues(alpha: 0.4),
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.share_rounded, size: 11, color: GymColors.purple),
+                              Icon(
+                                Icons.share_rounded,
+                                size: 11,
+                                color: GymColors.purple,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Chia sẻ',
@@ -1937,16 +2299,41 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildSectionHeader('BXH Điểm Huy Chương', Icons.military_tech),
+            _buildSectionHeader('BXH Điểm Thi Đua', Icons.leaderboard),
             Row(
               children: [
                 ChoiceChip(
                   label: const Text('Bạn Bè', style: TextStyle(fontSize: 11)),
-                  selected: _medalLeaderboardFriendsOnly,
+                  selected:
+                      _medalLeaderboardFriendsOnly &&
+                      !_medalLeaderboardLocalOnly,
                   onSelected: (val) {
                     if (val) {
-                      setState(() => _medalLeaderboardFriendsOnly = true);
-                      _service.getMedalLeaderboard(friendsOnly: true).then((list) {
+                      setState(() {
+                        _medalLeaderboardFriendsOnly = true;
+                        _medalLeaderboardLocalOnly = false;
+                      });
+                      _service.getMedalLeaderboard(friendsOnly: true).then((
+                        list,
+                      ) {
+                        if (mounted) setState(() => _medalLeaderboard = list);
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  label: const Text('Khu vực', style: TextStyle(fontSize: 11)),
+                  selected: _medalLeaderboardLocalOnly,
+                  onSelected: (val) {
+                    if (val) {
+                      setState(() {
+                        _medalLeaderboardFriendsOnly = false;
+                        _medalLeaderboardLocalOnly = true;
+                      });
+                      _service.getMedalLeaderboard(localOnly: true).then((
+                        list,
+                      ) {
                         if (mounted) setState(() => _medalLeaderboard = list);
                       });
                     }
@@ -1955,11 +2342,18 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                 const SizedBox(width: 6),
                 ChoiceChip(
                   label: const Text('Toàn Cầu', style: TextStyle(fontSize: 11)),
-                  selected: !_medalLeaderboardFriendsOnly,
+                  selected:
+                      !_medalLeaderboardFriendsOnly &&
+                      !_medalLeaderboardLocalOnly,
                   onSelected: (val) {
                     if (val) {
-                      setState(() => _medalLeaderboardFriendsOnly = false);
-                      _service.getMedalLeaderboard(friendsOnly: false).then((list) {
+                      setState(() {
+                        _medalLeaderboardFriendsOnly = false;
+                        _medalLeaderboardLocalOnly = false;
+                      });
+                      _service.getMedalLeaderboard(friendsOnly: false).then((
+                        list,
+                      ) {
                         if (mounted) setState(() => _medalLeaderboard = list);
                       });
                     }
@@ -1975,11 +2369,16 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
           const Center(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: Text('Chưa có dữ liệu bảng xếp hạng', style: TextStyle(color: GymColors.muted)),
+              child: Text(
+                'Chưa có dữ liệu bảng xếp hạng',
+                style: TextStyle(color: GymColors.muted),
+              ),
             ),
           )
         else
-          ..._medalLeaderboard.map((user) => _buildMedalLeaderboardUserRow(user)),
+          ..._medalLeaderboard.map(
+            (user) => _buildMedalLeaderboardUserRow(user),
+          ),
       ],
     );
   }
@@ -1999,7 +2398,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
     } else {
       rankWidget = Text(
         '#${user.rank}',
-        style: const TextStyle(fontWeight: FontWeight.bold, color: GymColors.muted, fontSize: 13),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: GymColors.muted,
+          fontSize: 13,
+        ),
       );
     }
 
@@ -2029,7 +2432,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                 : const Color(0xFF38BDF8).withValues(alpha: 0.25),
             child: Text(
               user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : '?',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 13,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -2042,19 +2449,33 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
                     Flexible(
                       child: Text(
                         user.fullName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (user.isCurrentUser) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: GymColors.purple,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('Bạn', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Bạn',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -2071,7 +2492,11 @@ class _FriendsCompetitionScreenState extends State<FriendsCompetitionScreen>
             children: [
               Text(
                 '${user.totalPoints} pts',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFFD700), fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFFD700),
+                  fontSize: 13,
+                ),
               ),
               Text(
                 '${user.medalsCount} huy chương 🏅',

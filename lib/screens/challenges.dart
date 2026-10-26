@@ -80,20 +80,7 @@ class ChallengeStore extends ChangeNotifier {
     try {
       await ChallengeService.instance.joinChallenge(c.id);
       await load();
-      _lastNotification = 'Ban da tham gia thu thach "${c.title}"! Chuc may man!';
-      notifyListeners();
-    } catch (e) {
-      _lastNotification = e is ApiException ? e.message : e.toString();
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> addProgress(ActiveChallenge ac, int amount) async {
-    try {
-      final res = await ChallengeService.instance.updateProgress(ac.challenge.id, amount);
-      await load();
-      _lastNotification = res['message']?.toString() ?? 'Da ghi nhan tien do!';
+      _lastNotification = 'Bạn đã tham gia thử thách "${c.title}"! Chúc may mắn!';
       notifyListeners();
     } catch (e) {
       _lastNotification = e is ApiException ? e.message : e.toString();
@@ -106,7 +93,7 @@ class ChallengeStore extends ChangeNotifier {
     try {
       await ChallengeService.instance.quitChallenge(ac.challenge.id);
       await load();
-      _lastNotification = 'Da tu bo thu thach "${ac.challenge.title}".';
+      _lastNotification = 'Đã từ bỏ thử thách "${ac.challenge.title}".';
       notifyListeners();
     } catch (e) {
       _lastNotification = e is ApiException ? e.message : e.toString();
@@ -237,7 +224,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Thu Thach Gym',
+                    'Thử Thách Gym',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -246,7 +233,7 @@ class _ChallengesScreenState extends State<ChallengesScreen>
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Kien tri moi ngay • Chinh phuc huy chuong',
+                    'Kiên trì mỗi ngày • Chinh phục huy chương',
                     style: TextStyle(fontSize: 10, color: GymColors.muted),
                   ),
                 ],
@@ -265,9 +252,9 @@ class _ChallengesScreenState extends State<ChallengesScreen>
                   unselectedLabelColor: GymColors.muted,
                   labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   tabs: [
-                    Tab(text: 'Kham Pha (${allChallenges.length})'),
-                    Tab(text: 'Dang Tham Gia (${_store.activeChallenges.length})'),
-                    Tab(text: 'Huy Chuong (${_store.medals.length})'),
+                    Tab(text: 'Khám Phá (${allChallenges.length})'),
+                    Tab(text: 'Đang Tham Gia (${_store.activeChallenges.length})'),
+                    Tab(text: 'Huy Chương (${_store.medals.length})'),
                   ],
                 ),
               ),
@@ -344,12 +331,12 @@ class _ActiveTab extends StatelessWidget {
             const Text('🎯', style: TextStyle(fontSize: 56)),
             const SizedBox(height: 16),
             const Text(
-              'Chua co thu thach nao dang tham gia',
+              'Chưa có thử thách nào đang tham gia',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Chuyen sang tab "Kham Pha" de chon thu thach!',
+              'Chuyển sang tab "Khám Phá" để chọn thử thách!',
               style: TextStyle(color: GymColors.muted, fontSize: 13),
             ),
           ],
@@ -382,10 +369,10 @@ class _MedalsTab extends StatelessWidget {
           children: [
             Text('🏅', style: TextStyle(fontSize: 56)),
             SizedBox(height: 16),
-            Text('Chua co huy chuong nao',
+            Text('Chưa có huy chương nào',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             SizedBox(height: 8),
-            Text('Hoan thanh thu thach de nhan huy chuong!',
+            Text('Hoàn thành thử thách để nhận huy chương!',
                 style: TextStyle(color: GymColors.muted, fontSize: 13)),
           ],
         ),
@@ -479,7 +466,7 @@ class _ChallengeCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'Dang tap',
+                        'Đang tập',
                         style: TextStyle(color: c.color, fontSize: 11, fontWeight: FontWeight.w700),
                       ),
                     )
@@ -513,62 +500,20 @@ class _ActiveChallengeCard extends StatefulWidget {
 }
 
 class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
-  late TextEditingController _amountCtrl;
   bool _loading = false;
-  String? _errorText;
 
-  @override
-  void initState() {
-    super.initState();
-    _amountCtrl = TextEditingController();
-  }
+  static String _cameraHint(String metric) => switch (metric) {
+        'squat' => 'Chỉ rep squat đúng form được tính.',
+        'pushup' => 'Chỉ rep push-up đúng form được tính.',
+        'jumpingJack' => 'Chỉ rep jumping jack đúng form được tính.',
+        'shoulderPress' => 'Chỉ rep shoulder press đúng form được tính.',
+        'morningSession' => 'Mỗi buổi tập camera bắt đầu trước 8h tính 1 buổi.',
+        _ => 'Mỗi buổi tập camera tính 1 buổi.',
+      };
 
-  @override
-  void dispose() {
-    _amountCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitProgress() async {
-    final text = _amountCtrl.text.trim();
-    final val = int.tryParse(text);
-    final ac = widget.activeChallenge;
-    final step = ac.currentStep;
-    final maxAllowed = step?.targetValue ?? 0;
-
-    // Validate frontend: chỉ yêu cầu số nguyên > 0
-    if (val == null || val <= 0) {
-      setState(() => _errorText = 'So luong phai la so nguyen lon hon 0.');
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _errorText = null;
-    });
-
-    try {
-      await widget.store.addProgress(ac, val);
-      _amountCtrl.clear();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(widget.store.lastNotification ?? 'Da ghi nhan tien do!'),
-        backgroundColor: const Color(0xFF30D66A),
-        behavior: SnackBarBehavior.floating,
-      ));
-    } catch (e) {
-      final msg = e is ApiException ? e.message : e.toString();
-      setState(() => _errorText = msg);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(msg),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+  Future<void> _trainWithCamera() async {
+    await Navigator.pushNamed(context, '/camera');
+    if (mounted) await widget.store.load();
   }
 
   Future<void> _confirmQuit(BuildContext context, ActiveChallenge ac) async {
@@ -581,18 +526,18 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
           children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFFF4F6D), size: 22),
             SizedBox(width: 8),
-            Text('Tu bo thu thach?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('Từ bỏ thử thách?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Text(
-          'Ban co chac muon tu bo thu thach "${ac.challenge.title}"?\n\n'
-          'Toan bo tien trinh se bi huy. Neu tham gia lai sau nay, ban se bat dau lai tu ngay dau tien.',
+          'Bạn có chắc muốn từ bỏ thử thách "${ac.challenge.title}"?\n\n'
+          'Toàn bộ tiến trình sẽ bị hủy. Nếu tham gia lại sau này, bạn sẽ bắt đầu lại từ ngày đầu tiên.',
           style: const TextStyle(fontSize: 13, color: GymColors.muted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Tiep tuc tap', style: TextStyle(color: Colors.white)),
+            child: const Text('Tiếp tục tập', style: TextStyle(color: Colors.white)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -600,7 +545,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Tu bo', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Từ bỏ', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -612,7 +557,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
         await widget.store.quitChallenge(ac);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(widget.store.lastNotification ?? 'Da tu bo thu thach.'),
+          content: Text(widget.store.lastNotification ?? 'Đã từ bỏ thử thách.'),
           backgroundColor: Colors.white24,
           behavior: SnackBarBehavior.floating,
         ));
@@ -645,7 +590,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
     final totalTarget = ac.totalTarget > 0 ? ac.totalTarget : c.steps.fold(0, (sum, s) => sum + s.targetValue);
     final totalProgress = ac.totalProgress;
     final remaining = (totalTarget - totalProgress).clamp(0, totalTarget);
-    final unit = step?.unit ?? 'cai';
+    final unit = step?.unit ?? 'cái';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
@@ -684,7 +629,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                           Text(c.title,
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                           Text(
-                            'Ngay ${ac.daysElapsed + 1}/${c.durationDays} • ${(pct * 100).round()}% hoan thanh',
+                            'Ngày ${ac.daysElapsed + 1}/${c.durationDays} • ${(pct * 100).round()}% hoàn thành',
                             style: const TextStyle(color: GymColors.muted, fontSize: 11),
                           ),
                         ],
@@ -692,7 +637,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                     ),
                     if (isDone)
                       const Chip(
-                        label: Text('Da hoan thanh', style: TextStyle(fontSize: 10, color: Colors.white)),
+                        label: Text('Đã hoàn thành', style: TextStyle(fontSize: 10, color: Colors.white)),
                         backgroundColor: Color(0xFF30D66A),
                       )
                     else if (!canUpdate)
@@ -719,7 +664,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              isOverTarget ? 'Vuot chi tieu' : 'Da hoan thanh',
+                              isOverTarget ? 'Vượt chỉ tiêu' : 'Đã hoàn thành',
                               style: TextStyle(
                                 color: isOverTarget ? const Color(0xFFFFB83F) : const Color(0xFF30D66A),
                                 fontSize: 10,
@@ -746,7 +691,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'KIEM TRA TIEN DO',
+                        'KIỂM TRA TIẾN ĐỘ',
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: GymColors.muted, letterSpacing: 0.8),
                       ),
                       const SizedBox(height: 10),
@@ -754,7 +699,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                         children: [
                           Expanded(
                             child: _statItem(
-                              'Hom nay',
+                              'Hôm nay',
                               todayAmount > 0 ? '$todayAmount/$todayTarget $unit' : '0/$todayTarget $unit',
                               isOverTarget
                                   ? const Color(0xFFFFB83F)
@@ -763,7 +708,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                           ),
                           Expanded(
                             child: _statItem(
-                              'Tong tien do',
+                              'Tổng tiến độ',
                               '$totalProgress/$totalTarget $unit',
                               Colors.white,
                             ),
@@ -775,14 +720,14 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                         children: [
                           Expanded(
                             child: _statItem(
-                              'Tien do tong',
+                              'Tiến độ tổng',
                               '${(pct * 100).round()}%',
                               c.color,
                             ),
                           ),
                           Expanded(
                             child: _statItem(
-                              'Con lai',
+                              'Còn lại',
                               '$remaining $unit',
                               const Color(0xFFFFB83F),
                             ),
@@ -797,7 +742,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                           const Icon(Icons.calendar_today_rounded, size: 13, color: GymColors.muted),
                           const SizedBox(width: 6),
                           Text(
-                            'Cap nhat tiep theo: ${ac.canUpdateToday ? "Hom nay (dang mo - co the nhap nhieu lan)" : ac.nextAllowedDate}',
+                            'Cập nhật tiếp theo: ${ac.canUpdateToday ? "Hôm nay (đang mở - tập với camera để cộng)" : ac.nextAllowedDate}',
                             style: const TextStyle(fontSize: 11, color: GymColors.muted),
                           ),
                         ],
@@ -824,7 +769,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                         const Icon(Icons.emoji_events_rounded, color: Color(0xFF30D66A), size: 36),
                         const SizedBox(height: 8),
                         const Text(
-                          'DA HOAN THANH XUAT SAC!',
+                          'ĐÃ HOÀN THÀNH XUẤT SẮC!',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
@@ -833,7 +778,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Huy chuong "${c.medalTitle}" da duoc luu vao bo suu tap.',
+                          'Huy chương "${c.medalTitle}" đã được lưu vào bộ sưu tập.',
                           style: const TextStyle(fontSize: 11, color: GymColors.muted),
                           textAlign: TextAlign.center,
                         ),
@@ -868,7 +813,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'BIEU DUONG XUAT SAC!',
+                                      'BIỂU DƯƠNG XUẤT SẮC!',
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w900,
@@ -876,7 +821,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                                       ),
                                     ),
                                     Text(
-                                      'Da thuc hien $todayAmount/$todayTarget $unit (Vuot chi tieu +${todayAmount - todayTarget} $unit!)',
+                                      'Đã thực hiện $todayAmount/$todayTarget $unit (Vượt chỉ tiêu +${todayAmount - todayTarget} $unit!)',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
@@ -917,7 +862,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    'Tien trinh thu thach ghi nhan: $todayTarget/$todayTarget $unit • Thuc te ban da lam $todayAmount $unit push up!',
+                                    'Tiến trình thử thách ghi nhận: $todayTarget/$todayTarget $unit • Thực tế bạn đã làm $todayAmount $unit!',
                                     style: const TextStyle(fontSize: 11, color: GymColors.muted),
                                   ),
                                 ),
@@ -931,7 +876,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Hom nay da lam: $todayAmount/$todayTarget $unit - Da hoan thanh!',
+                                  'Hôm nay đã làm: $todayAmount/$todayTarget $unit - Đã hoàn thành!',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -948,7 +893,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                             const Icon(Icons.lock_clock_rounded, size: 14, color: GymColors.muted),
                             const SizedBox(width: 6),
                             const Text(
-                              'Da khoa. Mo khoa ngay mai sau: ',
+                              'Đã khóa. Mở khóa ngày mai sau: ',
                               style: TextStyle(fontSize: 11, color: GymColors.muted),
                             ),
                             CountdownTimerWidget(
@@ -965,7 +910,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                               child: TextField(
                                 enabled: false,
                                 decoration: InputDecoration(
-                                  hintText: 'Da khoa hom nay ($todayAmount/$todayTarget $unit)',
+                                  hintText: 'Đã khóa hôm nay ($todayAmount/$todayTarget $unit)',
                                   hintStyle: const TextStyle(color: GymColors.muted, fontSize: 12),
                                   filled: true,
                                   fillColor: Colors.black12,
@@ -984,7 +929,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               ),
                               onPressed: null,
-                              child: const Text('Da Khoa', style: TextStyle(color: GymColors.muted)),
+                              child: const Text('Đã Khóa', style: TextStyle(color: GymColors.muted)),
                             ),
                           ],
                         ),
@@ -1009,7 +954,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Muc tieu hom nay: $todayTarget $unit (${step?.title ?? ""})',
+                                'Mục tiêu hôm nay: $todayTarget $unit (${step?.title ?? ""})',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -1025,11 +970,11 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Hom nay da tich luy: $todayAmount/$todayTarget $unit',
+                                'Hôm nay đã tích lũy: $todayAmount/$todayTarget $unit',
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFFFB83F)),
                               ),
                               Text(
-                                'Con thieu: ${(todayTarget - todayAmount).clamp(0, todayTarget)} $unit',
+                                'Còn thiếu: ${(todayTarget - todayAmount).clamp(0, todayTarget)} $unit',
                                 style: const TextStyle(fontSize: 11, color: GymColors.muted),
                               ),
                             ],
@@ -1047,50 +992,22 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                         ],
                         const SizedBox(height: 8),
                         Text(
-                          '💡 Ban co the nhap tien do nhieu lan (cac hiep) cho den khi du $todayTarget $unit thi moi khoa.',
+                          '💡 ${_cameraHint(ac.challenge.metric)} Tiến độ chỉ tính khi camera đếm và lưu buổi tập.',
                           style: const TextStyle(fontSize: 11, color: GymColors.muted),
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _amountCtrl,
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                decoration: InputDecoration(
-                                  hintText: todayAmount > 0 ? 'Nhap them hiep nay (vi du 35)...' : 'Nhap so da lam hiep nay...',
-                                  hintStyle: const TextStyle(fontSize: 12, color: GymColors.muted),
-                                  suffixText: unit,
-                                  suffixStyle: TextStyle(color: c.color, fontWeight: FontWeight.w700),
-                                  filled: true,
-                                  fillColor: Colors.black,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: c.color),
-                                  ),
-                                  errorText: _errorText,
-                                ),
-                              ),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: c.color,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            const SizedBox(width: 10),
-                            SizedBox(
-                              height: 48,
-                              child: FilledButton(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: c.color,
-                                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                onPressed: _loading ? null : _submitProgress,
-                                child: _loading
-                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : Text(todayAmount > 0 ? 'Cong Tiep' : 'Cap Nhat', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                          ],
+                            onPressed: _loading ? null : _trainWithCamera,
+                            icon: const Icon(Icons.photo_camera_outlined),
+                            label: const Text('Tập với camera', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
                         ),
                       ],
                     ),
@@ -1110,7 +1027,7 @@ class _ActiveChallengeCardState extends State<_ActiveChallengeCard> {
                       onPressed: _loading ? null : () => _confirmQuit(context, ac),
                       icon: const Icon(Icons.cancel_outlined, size: 14),
                       label: const Text(
-                        'Tu bo thu thach',
+                        'Từ bỏ thử thách',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1189,7 +1106,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
           const SizedBox(height: 16),
           Text(c.description, style: const TextStyle(color: GymColors.muted, height: 1.6, fontSize: 13)),
           const SizedBox(height: 24),
-          const Text('Cac Giai Doan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const Text('Các Giai Đoạn', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           ...c.steps.asMap().entries.map((e) {
             final i = e.key;
@@ -1220,7 +1137,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
                       children: [
                         Text(s.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         Text(s.description, style: const TextStyle(color: GymColors.muted, fontSize: 11)),
-                        Text('Muc tieu: ${s.targetValue} ${s.unit}',
+                        Text('Mục tiêu: ${s.targetValue} ${s.unit}',
                             style: TextStyle(color: c.color, fontSize: 11, fontWeight: FontWeight.w600)),
                       ],
                     ),
@@ -1248,7 +1165,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Phan Thuong Khi Hoan Thanh',
+                      const Text('Phần Thưởng Khi Hoàn Thành',
                           style: TextStyle(fontSize: 11, color: GymColors.muted)),
                       Text(c.medalTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                       Text(c.medalDescription, style: const TextStyle(color: GymColors.muted, fontSize: 11)),
@@ -1265,7 +1182,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: c.color, minimumSize: const Size(0, 52)),
                 icon: const Icon(Icons.flag_rounded),
-                label: const Text('Tham Gia Thu Thach',
+                label: const Text('Tham Gia Thử Thách',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 onPressed: () async {
                   try {
@@ -1276,7 +1193,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
                       content: Row(children: [
                         Text(c.emoji),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('Da tham gia "${c.title}"!')),
+                        Expanded(child: Text('Đã tham gia "${c.title}"!')),
                       ]),
                       backgroundColor: c.color,
                       behavior: SnackBarBehavior.floating,
@@ -1304,7 +1221,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.emoji_events_rounded, color: Color(0xFF30D66A)),
                 SizedBox(width: 8),
-                Text('Da hoan thanh! Huy chuong da duoc luu.',
+                Text('Đã hoàn thành! Huy chương đã được lưu.',
                     style: TextStyle(color: Color(0xFF30D66A), fontWeight: FontWeight.w600)),
               ]),
             )
@@ -1318,7 +1235,7 @@ class _ChallengeDetailSheet extends StatelessWidget {
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.play_circle_rounded, color: GymColors.purple),
                 SizedBox(width: 8),
-                Text('Dang tham gia thu thach nay.',
+                Text('Đang tham gia thử thách này.',
                     style: TextStyle(color: GymColors.purple, fontWeight: FontWeight.w600)),
               ]),
             ),

@@ -1,5 +1,6 @@
 class ReminderSettings {
   const ReminderSettings({
+    this.botRoastEnabled = false,
     this.workoutEnabled = false,
     this.workoutTime = '18:00',
     this.workoutDays = const [1, 2, 3, 4, 5, 6, 7],
@@ -14,11 +15,13 @@ class ReminderSettings {
     this.revision = 0,
   });
   final bool workoutEnabled, waterEnabled, weeklyEnabled;
+  final bool botRoastEnabled;
   final String workoutTime, waterStart, waterEnd, weeklyTime, timeZone;
   final List<int> workoutDays;
   final int waterIntervalMinutes, weeklyDay, revision;
   bool get anyEnabled => workoutEnabled || waterEnabled || weeklyEnabled;
   Map<String, dynamic> toJson() => {
+    'botRoastEnabled': botRoastEnabled,
     'workoutEnabled': workoutEnabled,
     'workoutTime': workoutTime,
     'workoutDays': workoutDays,
@@ -33,6 +36,7 @@ class ReminderSettings {
     'revision': revision,
   };
   factory ReminderSettings.fromJson(Map<String, dynamic> j) => ReminderSettings(
+    botRoastEnabled: j['botRoastEnabled'] == true,
     workoutEnabled: j['workoutEnabled'] == true,
     workoutTime: j['workoutTime'] as String? ?? '18:00',
     workoutDays:
@@ -48,6 +52,7 @@ class ReminderSettings {
     revision: j['revision'] as int? ?? 0,
   );
   ReminderSettings copyWith({
+    bool? botRoastEnabled,
     bool? workoutEnabled,
     String? workoutTime,
     List<int>? workoutDays,
@@ -61,6 +66,7 @@ class ReminderSettings {
     String? timeZone,
     int? revision,
   }) => ReminderSettings(
+    botRoastEnabled: botRoastEnabled ?? this.botRoastEnabled,
     workoutEnabled: workoutEnabled ?? this.workoutEnabled,
     workoutTime: workoutTime ?? this.workoutTime,
     workoutDays: workoutDays ?? this.workoutDays,
@@ -99,8 +105,8 @@ class NotificationLink {
   final String owner, kind;
   final String? id, at;
   String get route {
+    if (kind == 'workout') return '/camera';
     final path = switch (kind) {
-      'workout' => '/workouts',
       'water' => '/water',
       'weekly' => '/weekly-report',
       _ => '/notifications',

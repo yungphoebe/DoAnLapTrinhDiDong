@@ -30,8 +30,11 @@ class GymChallenge {
   final IconData icon;
   final String medalTitle;
   final String medalDescription;
+  // Matches the backend metric: 'session', 'morningSession' or a camera exercise key.
+  final String metric;
 
   const GymChallenge({
+    this.metric = 'session',
     required this.id,
     required this.title,
     required this.description,
@@ -46,9 +49,9 @@ class GymChallenge {
   });
 
   String get difficultyLabel => switch (difficulty) {
-    ChallengeDifficulty.easy => 'De',
-    ChallengeDifficulty.medium => 'Trung binh',
-    ChallengeDifficulty.hard => 'Kho',
+    ChallengeDifficulty.easy => 'Dễ',
+    ChallengeDifficulty.medium => 'Trung bình',
+    ChallengeDifficulty.hard => 'Khó',
   };
 
   Color get difficultyColor => switch (difficulty) {
@@ -139,15 +142,15 @@ class ActiveChallenge {
   String get progressNotification {
     final pct = (overallProgress * 100).round();
     if (pct < 25) {
-      return 'Ban da bat dau thu thach "${challenge.title}"! Hay duy tri nhe!';
+      return 'Bạn đã bắt đầu thử thách "${challenge.title}"! Hãy duy trì nhé!';
     } else if (pct < 50) {
-      return 'Ban da hoan thanh $pct% thu thach "${challenge.title}". Tiep tuc nao!';
+      return 'Bạn đã hoàn thành $pct% thử thách "${challenge.title}". Tiếp tục nào!';
     } else if (pct < 75) {
-      return 'Hon nua chang duong roi! $pct% thu thach "${challenge.title}" da xong!';
+      return 'Hơn nửa chặng đường rồi! $pct% thử thách "${challenge.title}" đã xong!';
     } else if (pct < 100) {
-      return 'Sap ve dich! $pct% — Chi con mot chut nua thoi!';
+      return 'Sắp về đích! $pct% — Chỉ còn một chút nữa thôi!';
     } else {
-      return 'Xuat sac! Ban da hoan thanh thu thach "${challenge.title}"!';
+      return 'Xuất sắc! Bạn đã hoàn thành thử thách "${challenge.title}"!';
     }
   }
 }
@@ -161,105 +164,110 @@ class EarnedMedal {
 final List<GymChallenge> allChallenges = [
   const GymChallenge(
     id: 'c1',
-    title: '7 Ngay Khong Nghi',
-    description: 'Tap gym lien tuc 7 ngay khong bo lo mot buoi nao. Xay dung thoi quen kien tri!',
+    title: '7 Ngày Không Nghỉ',
+    description: 'Tập gym liên tục 7 ngày không bỏ lỡ một buổi nào. Xây dựng thói quen kiên trì!',
     emoji: '🔥',
     difficulty: ChallengeDifficulty.easy,
     durationDays: 7,
     color: Color(0xFFFF6B35),
     icon: Icons.local_fire_department_rounded,
-    medalTitle: 'Huy Chuong Kien Tri',
-    medalDescription: 'Hoan thanh 7 ngay tap khong nghi',
+    medalTitle: 'Huy Chương Kiên Trì',
+    medalDescription: 'Hoàn thành 7 ngày tập không nghỉ',
     steps: [
-      ChallengeStep(title: 'Ngay 1-2', description: 'Tap it nhat 2 buoi gym', targetValue: 2, unit: 'buoi'),
-      ChallengeStep(title: 'Ngay 3-5', description: 'Tap them 3 buoi lien tiep', targetValue: 3, unit: 'buoi'),
-      ChallengeStep(title: 'Ngay 6-7', description: 'Hoan thanh 2 buoi cuoi', targetValue: 2, unit: 'buoi'),
+      ChallengeStep(title: 'Ngày 1-2', description: 'Tập ít nhất 2 buổi gym', targetValue: 2, unit: 'buổi'),
+      ChallengeStep(title: 'Ngày 3-5', description: 'Tập thêm 3 buổi liên tiếp', targetValue: 3, unit: 'buổi'),
+      ChallengeStep(title: 'Ngày 6-7', description: 'Hoàn thành 2 buổi cuối', targetValue: 2, unit: 'buổi'),
     ],
   ),
   const GymChallenge(
     id: 'c2',
-    title: 'Vua Cardio 30 Ngay',
-    description: 'Chay tong cong 100km trong 30 ngay. Thu thach suc ben thuc su!',
+    title: 'Vua Cardio 30 Ngày',
+    description: 'Thực hiện tổng cộng 1000 cái jumping jack trong 30 ngày. Thử thách sức bền thực sự!',
     emoji: '🏃',
     difficulty: ChallengeDifficulty.medium,
     durationDays: 30,
+    metric: 'jumpingJack',
     color: Color(0xFF4ECDC4),
     icon: Icons.directions_run_rounded,
-    medalTitle: 'Huy Chuong Cardio Vuong',
-    medalDescription: 'Hoan thanh 100km chay bo trong 30 ngay',
+    medalTitle: 'Huy Chương Cardio Vương',
+    medalDescription: 'Hoàn thành 1000 jumping jack trong 30 ngày',
     steps: [
-      ChallengeStep(title: 'Tuan 1', description: 'Chay 20km dau tien', targetValue: 20, unit: 'km'),
-      ChallengeStep(title: 'Tuan 2', description: 'Tiep tuc 30km tiep theo', targetValue: 30, unit: 'km'),
-      ChallengeStep(title: 'Tuan 3', description: 'Day len 30km nua', targetValue: 30, unit: 'km'),
-      ChallengeStep(title: 'Tuan 4', description: 'Ve dich voi 20km con lai', targetValue: 20, unit: 'km'),
+      ChallengeStep(title: 'Tuần 1', description: '200 jumping jack đầu tiên', targetValue: 200, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 2', description: 'Tiếp tục 300 cái', targetValue: 300, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 3', description: 'Đẩy lên 300 cái nữa', targetValue: 300, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 4', description: 'Về đích với 200 cái còn lại', targetValue: 200, unit: 'cái'),
     ],
   ),
   const GymChallenge(
     id: 'c3',
-    title: 'Thach Thuc Squat 1000',
-    description: 'Thuc hien 1000 cai squat trong 10 ngay. Dui thep cho ban!',
+    title: 'Thách Thức Squat 1000',
+    description: 'Thực hiện 1000 cái squat trong 10 ngày. Đùi thép cho bạn!',
     emoji: '🦵',
     difficulty: ChallengeDifficulty.medium,
     durationDays: 10,
+    metric: 'squat',
     color: Color(0xFF983BFA),
     icon: Icons.fitness_center_rounded,
-    medalTitle: 'Huy Chuong Dui Thep',
-    medalDescription: 'Hoan thanh 1000 squat trong 10 ngay',
+    medalTitle: 'Huy Chương Đùi Thép',
+    medalDescription: 'Hoàn thành 1000 squat trong 10 ngày',
     steps: [
-      ChallengeStep(title: 'Ngay 1-3', description: 'Warm-up: 300 squat', targetValue: 300, unit: 'cai'),
-      ChallengeStep(title: 'Ngay 4-7', description: 'Tang toc: 400 squat', targetValue: 400, unit: 'cai'),
-      ChallengeStep(title: 'Ngay 8-10', description: 'Ve dich: 300 squat cuoi', targetValue: 300, unit: 'cai'),
+      ChallengeStep(title: 'Ngày 1-3', description: 'Warm-up: 300 squat', targetValue: 300, unit: 'cái'),
+      ChallengeStep(title: 'Ngày 4-7', description: 'Tăng tốc: 400 squat', targetValue: 400, unit: 'cái'),
+      ChallengeStep(title: 'Ngày 8-10', description: 'Về đích: 300 squat cuối', targetValue: 300, unit: 'cái'),
     ],
   ),
   const GymChallenge(
     id: 'c4',
-    title: 'Chien Binh Push-up',
-    description: 'Tu 10 cai len 100 cai push-up moi ngay trong 21 ngay. Vuot gioi han ban than!',
+    title: 'Chiến Binh Push-up',
+    description: 'Từ 10 cái lên 100 cái push-up mỗi ngày trong 21 ngày. Vượt giới hạn bản thân!',
     emoji: '💪',
     difficulty: ChallengeDifficulty.hard,
     durationDays: 21,
+    metric: 'pushup',
     color: Color(0xFFFF4F6D),
     icon: Icons.sports_gymnastics_rounded,
-    medalTitle: 'Huy Chuong Chien Binh',
-    medalDescription: 'Hoan thanh thu thach push-up 21 ngay',
+    medalTitle: 'Huy Chương Chiến Binh',
+    medalDescription: 'Hoàn thành thử thách push-up 21 ngày',
     steps: [
-      ChallengeStep(title: 'Tuan 1', description: 'Bat dau: 10-30 cai/ngay', targetValue: 140, unit: 'cai'),
-      ChallengeStep(title: 'Tuan 2', description: 'Tang: 30-60 cai/ngay', targetValue: 315, unit: 'cai'),
-      ChallengeStep(title: 'Tuan 3', description: 'Dinh cao: 60-100 cai/ngay', targetValue: 560, unit: 'cai'),
+      ChallengeStep(title: 'Tuần 1', description: 'Bắt đầu: 10-30 cái/ngày', targetValue: 140, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 2', description: 'Tăng: 30-60 cái/ngày', targetValue: 315, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 3', description: 'Đỉnh cao: 60-100 cái/ngày', targetValue: 560, unit: 'cái'),
     ],
   ),
   const GymChallenge(
     id: 'c5',
-    title: 'Thien Gym Buoi Sang',
-    description: 'Tap gym vao buoi sang truoc 8h, 15 ngay lien tiep. Suc manh bat dau tu binh minh!',
+    title: 'Thiền Gym Buổi Sáng',
+    description: 'Tập gym vào buổi sáng trước 8h, 15 ngày liên tiếp. Sức mạnh bắt đầu từ bình minh!',
     emoji: '🌅',
     difficulty: ChallengeDifficulty.easy,
     durationDays: 15,
+    metric: 'morningSession',
     color: Color(0xFFFFB83F),
     icon: Icons.wb_sunny_rounded,
-    medalTitle: 'Huy Chuong Binh Minh',
-    medalDescription: 'Hoan thanh 15 buoi tap sang som',
+    medalTitle: 'Huy Chương Bình Minh',
+    medalDescription: 'Hoàn thành 15 buổi tập sáng sớm',
     steps: [
-      ChallengeStep(title: 'Tuan 1', description: '5 buoi tap buoi sang', targetValue: 5, unit: 'buoi'),
-      ChallengeStep(title: 'Tuan 2', description: '5 buoi tiep theo', targetValue: 5, unit: 'buoi'),
-      ChallengeStep(title: 'Giai doan cuoi', description: '5 buoi ve dich', targetValue: 5, unit: 'buoi'),
+      ChallengeStep(title: 'Tuần 1', description: '5 buổi tập buổi sáng', targetValue: 5, unit: 'buổi'),
+      ChallengeStep(title: 'Tuần 2', description: '5 buổi tiếp theo', targetValue: 5, unit: 'buổi'),
+      ChallengeStep(title: 'Giai đoạn cuối', description: '5 buổi về đích', targetValue: 5, unit: 'buổi'),
     ],
   ),
   const GymChallenge(
     id: 'c6',
-    title: 'Thu Thach Plank Thep',
-    description: 'Plank tu 30 giay len 5 phut trong 30 ngay. Loi thep - Tinh than thep!',
-    emoji: '🧱',
+    title: 'Thử Thách Vai Thép',
+    description: 'Thực hiện 500 cái shoulder press trong 30 ngày. Vai thép - Tinh thần thép!',
+    emoji: '🏋️',
     difficulty: ChallengeDifficulty.hard,
     durationDays: 30,
+    metric: 'shoulderPress',
     color: Color(0xFF00B4D8),
     icon: Icons.accessibility_new_rounded,
-    medalTitle: 'Huy Chuong Loi Thep',
-    medalDescription: 'Hoan thanh thu thach plank 30 ngay',
+    medalTitle: 'Huy Chương Vai Thép',
+    medalDescription: 'Hoàn thành 500 shoulder press trong 30 ngày',
     steps: [
-      ChallengeStep(title: 'Tuan 1', description: 'Plank 30-60 giay/ngay', targetValue: 7, unit: 'ngay'),
-      ChallengeStep(title: 'Tuan 2', description: 'Tang len 1-2 phut/ngay', targetValue: 7, unit: 'ngay'),
-      ChallengeStep(title: 'Tuan 3-4', description: 'Chinh phuc 3-5 phut/ngay', targetValue: 14, unit: 'ngay'),
+      ChallengeStep(title: 'Tuần 1', description: 'Khởi động: 100 cái', targetValue: 100, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 2', description: 'Tăng lên 150 cái', targetValue: 150, unit: 'cái'),
+      ChallengeStep(title: 'Tuần 3-4', description: 'Chinh phục 250 cái cuối', targetValue: 250, unit: 'cái'),
     ],
   ),
 ];

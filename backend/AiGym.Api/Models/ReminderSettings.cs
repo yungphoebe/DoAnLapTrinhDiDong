@@ -4,6 +4,7 @@ public sealed class ReminderSettings
 {
     public string UserId { get; set; } = "";
     public bool WorkoutEnabled { get; set; }
+    public bool BotRoastEnabled { get; set; }
     public int WorkoutMinute { get; set; } = 1080;
     public string WorkoutDays { get; set; } = "1,2,3,4,5,6,7";
     public bool WaterEnabled { get; set; }

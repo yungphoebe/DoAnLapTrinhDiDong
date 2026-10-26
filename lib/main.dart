@@ -11,6 +11,7 @@ import 'screens/workout_plans.dart';
 import 'screens/onboarding.dart';
 import 'screens/reset_password.dart';
 import 'screens/settings.dart';
+import 'screens/training_bot.dart';
 import 'screens/nutrition.dart';
 import 'screens/shell.dart';
 import 'ai_test_page.dart';
@@ -65,6 +66,7 @@ class MainApp extends StatelessWidget {
       '/workout-history': (_) => const WorkoutHistoryScreen(),
       '/workout-plans': (_) => const WorkoutPlansScreen(),
       '/settings': (_) => const SettingsScreen(),
+      '/training-bot': (_) => const TrainingBotScreen(),
       '/nutrition': (_) => const NutritionScreen(),
       '/coach-settings': (_) => const CoachSettingsScreen(),
       '/notifications': (_) => const NotificationsScreen(),

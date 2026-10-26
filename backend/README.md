@@ -104,6 +104,20 @@ HTTP 504 thay vi loi 500 khong doc duoc tren app.
 - Mat khau: `123123123Az!`
 - Roles: `Admin`, `User`
 
+Development tu tao san 4 tai khoan ban ao de kiem thu tim kiem va ket ban:
+
+| Email | Mat khau | Dia diem tap |
+|---|---|---|
+| `banao1@aigym.test` | `Test123!Aa` | Gym Quan 1 |
+| `banao2@aigym.test` | `Test123!Aa` | Gym Quan 1 |
+| `banao3@aigym.test` | `Test123!Aa` | Gym Quan 3 |
+| `banao4@aigym.test` | `Test123!Aa` | Gym Quan 7 |
+
+Dang nhap tai khoan admin, vao **Trang chu -> Thi dua & Bang xep hang ->
+Thi dua Huy chuong & Ban be -> Tim Ban**, tim theo email, sau do bam **Ket ban**.
+Tai khoan ao co san mot huy chuong de hien thi du lieu thi dua. Cac tai khoan
+va huy chuong chi duoc tao khi chay o moi truong Development.
+
 User dang ky qua API mac dinh duoc gan role `User`.
 
 ## Endpoint
@@ -167,6 +181,13 @@ dotnet test backend/AiGym.Api.Tests
 ```
 
 `GET /api/posts` can JWT.
+
+### Bang xep hang thi dua
+
+`GET /api/medals/leaderboard?scope=all` tra bang xep hang diem huy chuong
+toan he thong. Dung `scope=friends` de chi xem ban be, hoac
+`scope=local` de xem nguoi tap co cung `TrainingLocation` voi tai khoan hien tai.
+Diem duoc tinh tu cac thu thach da hoan thanh theo do kho.
 
 `POST /api/posts` can login:
 
