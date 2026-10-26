@@ -31,6 +31,47 @@ List<PosePoint?> pushup(double elbow) {
   return points;
 }
 
+List<PosePoint?> shoulderPress(bool extended, {bool rightExtended = false}) {
+  final points = List<PosePoint?>.filled(33, _hidden);
+  for (final side in [0, 1]) {
+    final up = side == 0 ? extended : rightExtended;
+    final sign = side == 0 ? -1 : 1;
+    final x = side == 0 ? 0.4 : 0.6;
+    points[11 + side] = PosePoint(x, 0.45);
+    points[13 + side] = up
+        ? PosePoint(x + sign * 0.02, 0.28)
+        : PosePoint(x + sign * 0.15, 0.45);
+    // In the rack position the wrists remain ABOVE the shoulders.
+    points[15 + side] = up
+        ? PosePoint(x + sign * 0.04, 0.11)
+        : PosePoint(x + sign * 0.15, 0.25);
+  }
+  return points;
+}
+
+List<PosePoint?> curl(double elbow) {
+  final r = elbow * pi / 180;
+  final points = List<PosePoint?>.filled(33, _hidden);
+  points[11] = const PosePoint(0.5, 0.25);
+  points[13] = const PosePoint(0.5, 0.45);
+  points[15] = PosePoint(0.5 + 0.2 * sin(r), 0.45 - 0.2 * cos(r));
+  return points;
+}
+
+List<PosePoint?> jumpingJack(bool open) {
+  final points = List<PosePoint?>.filled(33, _hidden);
+  for (final side in [0, 1]) {
+    final sign = side == 0 ? -1 : 1;
+    final x = 0.5 + sign * 0.1;
+    points[11 + side] = PosePoint(x, 0.3);
+    points[15 + side] = PosePoint(x, open ? 0.1 : 0.65);
+    points[23 + side] = PosePoint(x, 0.55);
+    points[25 + side] = PosePoint(x, 0.7);
+    points[27 + side] = PosePoint(0.5 + sign * (open ? 0.25 : 0.1), 0.9);
+  }
+  return points;
+}
+
 /// Feeds [poses] each held for [holdMs], one frame every 50 ms.
 List<PoseResult> run(
   PoseWorkout engine,
@@ -49,6 +90,106 @@ List<PoseResult> run(
 }
 
 void main() {
+  test('catalog names resolve to the same rules as built-in exercises', () {
+    final names = {
+      'Squat': 'squat',
+      'Push-up': 'pushup',
+      'Chống đẩy': 'pushup',
+      'Jumping Jack': 'jumpingJack',
+      'Dumbbell Shoulder Press': 'shoulderPress',
+      'Đẩy vai': 'shoulderPress',
+      'Biceps Curl': 'bicepsCurl',
+      'Tập tay trước': 'bicepsCurl',
+    };
+    for (final entry in names.entries) {
+      expect(poseExerciseFor('catalog_42') ?? poseExerciseFor(entry.key),
+          entry.value);
+    }
+    expect(
+        poseExerciseFor('catalog_99') ?? poseExerciseFor('Leg Press'), isNull);
+  });
+
+  test('shoulder press counts rack-overhead-rack with wrists above shoulders',
+      () {
+    final engine = PoseWorkout()..setExercise('shoulderPress');
+    final rack = shoulderPress(false);
+    final top = shoulderPress(true, rightExtended: true);
+    final results = run(engine, [rack, top, rack, top, rack]);
+    expect(results.last.reps, 2);
+    expect(results.last.correctReps, 2);
+    expect(results.where((r) => r.repEvent != null), hasLength(2));
+  });
+
+  test('shoulder press does not count static, partial or one-arm movements',
+      () {
+    for (final poses in [
+      [shoulderPress(true, rightExtended: true)],
+      [shoulderPress(false), shoulderPress(false), shoulderPress(false)],
+      [shoulderPress(false), shoulderPress(true), shoulderPress(false)],
+    ]) {
+      final engine = PoseWorkout()..setExercise('shoulderPress');
+      expect(run(engine, poses).last.reps, 0);
+    }
+  });
+
+  test('shoulder press ignores low-confidence arms instead of counting them',
+      () {
+    final engine = PoseWorkout()..setExercise('shoulderPress');
+    final points = shoulderPress(true, rightExtended: true)
+        .map((p) => p == null ? null : PosePoint(p.x, p.y, 0.1))
+        .toList();
+    final results =
+        run(engine, [shoulderPress(false), points, shoulderPress(false)]);
+    expect(results.last.reps, 0);
+    expect(results.any((r) => !r.tracking), isTrue);
+  });
+
+  test('push-up counts without knees visible', () {
+    final engine = PoseWorkout()..setExercise('pushup');
+    final poses = [pushup(180), pushup(90), pushup(180)];
+    for (final p in poses) {
+      p[25] = null;
+    }
+    expect(run(engine, poses).last.correctReps, 1);
+  });
+
+  test('all five supported exercises count in portrait image coordinates', () {
+    final sequences = {
+      'squat': [squat(180), squat(90), squat(180)],
+      'pushup': [pushup(180), pushup(90), pushup(180)],
+      'jumpingJack': [
+        jumpingJack(false),
+        jumpingJack(true),
+        jumpingJack(false)
+      ],
+      'bicepsCurl': [curl(180), curl(70), curl(180)],
+      'shoulderPress': [
+        shoulderPress(false),
+        shoulderPress(true, rightExtended: true),
+        shoulderPress(false)
+      ],
+    };
+    // Center and shrink fixtures in pixel space, then normalize for a 480x640 frame.
+    for (final entry in sequences.entries) {
+      final engine = PoseWorkout()..setExercise(entry.key);
+      PoseResult? last;
+      var timestamp = 1000;
+      for (final pose in entry.value) {
+        final portrait = pose
+            .map((p) => p == null
+                ? null
+                : PosePoint(
+                    (p.x * 0.6 + 0.075) / 0.75, p.y * 0.6 + 0.2, p.visibility))
+            .toList();
+        for (var frame = 0; frame < 10; frame++) {
+          last = engine.update(portrait, timestamp, width: 480, height: 640);
+          timestamp += 50;
+        }
+      }
+      expect(last!.correctReps, 1, reason: entry.key);
+    }
+  });
+
   test('squat counts a full rep as correct and announces it', () {
     final engine = PoseWorkout()..setExercise('squat');
     final results = run(engine, [squat(180), squat(90), squat(180)]);

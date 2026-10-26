@@ -31,23 +31,8 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
   );
 
   String? get _poseMode {
-    final byId = poseExerciseFor(widget.exercise?.id);
-    if (byId != null) return byId;
-    final name = widget.exercise?.name.toLowerCase() ?? '';
-    if (name.contains('squat')) return 'squat';
-    if (name.contains('push-up') ||
-        name.contains('pushup') ||
-        name.contains('chống đẩy')) {
-      return 'pushup';
-    }
-    if (name.contains('jumping jack')) return 'jumpingJack';
-    if (name.contains('shoulder press') || name.contains('đẩy vai')) {
-      return 'shoulderPress';
-    }
-    if (name.contains('biceps curl') || name.contains('tay trước')) {
-      return 'bicepsCurl';
-    }
-    return null;
+    return poseExerciseFor(widget.exercise?.id) ??
+        poseExerciseFor(widget.exercise?.name);
   }
 
   @override
@@ -165,9 +150,8 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
           (plannedExercise.planId != null ||
               plannedExercise.planExerciseId != null)) {
         final mode = _poseMode;
-        final matching = exercises
-            .where((item) => item['exercise'] == mode)
-            .toList();
+        final matching =
+            exercises.where((item) => item['exercise'] == mode).toList();
         if (mode == null ||
             plannedExercise.planId == null ||
             plannedExercise.planExerciseId == null ||
@@ -179,8 +163,7 @@ class _PoseCameraScreenState extends State<PoseCameraScreen> {
           0,
           plannedExercise.sets,
         );
-        final timeTargetMet =
-            plannedExercise.targetSeconds == null ||
+        final timeTargetMet = plannedExercise.targetSeconds == null ||
             duration >= plannedExercise.targetSeconds! * plannedExercise.sets;
         final completed = measuredSets == plannedExercise.sets && timeTargetMet;
         await WorkoutService().savePlanExerciseResult(

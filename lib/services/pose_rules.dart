@@ -9,13 +9,46 @@ const poseExercises = [
   'bicepsCurl',
 ];
 
-/// Maps an app `Exercise.id` (e.g. `shoulder_press`) to a rule key, or null.
-String? poseExerciseFor(String? id) => switch (id) {
-  'shoulder_press' => 'shoulderPress',
-  'biceps_curl' => 'bicepsCurl',
-  _ when poseExercises.contains(id) => id,
-  _ => null,
-};
+/// Resolve a built-in ID or a catalog display name; unknown exercises stay null.
+String? poseExerciseFor(String? value) {
+  if (value == null) return null;
+  if (poseExercises.contains(value)) return value;
+  var name = value.toLowerCase().trim();
+  const accents = {
+    'a': 'àáạảãâầấậẩẫăằắặẳẵ',
+    'e': 'èéẹẻẽêềếệểễ',
+    'i': 'ìíịỉĩ',
+    'o': 'òóọỏõôồốộổỗơờớợởỡ',
+    'u': 'ùúụủũưừứựửữ',
+    'y': 'ỳýỵỷỹ',
+    'd': 'đ',
+  };
+  for (final entry in accents.entries) {
+    name = name.replaceAll(RegExp('[${entry.value}]'), entry.key);
+  }
+  name = name.replaceAll(RegExp(r'[-_\s]+'), ' ');
+  name = name.replaceFirst(
+    RegExp(r'^(?:(?:barbell|dumbbell|bodyweight|seated|standing) )+'),
+    '',
+  );
+  return switch (name) {
+    'squat' => 'squat',
+    'pushup' || 'push up' || 'chong day' || 'hit dat' => 'pushup',
+    'jumpingjack' || 'jumping jack' => 'jumpingJack',
+    'shoulderpress' ||
+    'shoulder press' ||
+    'overhead press' ||
+    'day vai' =>
+      'shoulderPress',
+    'bicepscurl' ||
+    'biceps curl' ||
+    'bicep curl' ||
+    'tap tay truoc' ||
+    'cuon tay truoc' =>
+      'bicepsCurl',
+    _ => null,
+  };
+}
 
 const poseExerciseNames = {
   'squat': 'Squat',
@@ -71,11 +104,11 @@ class ExerciseCount {
   int correctReps = 0, incorrectReps = 0;
   int get reps => correctReps + incorrectReps;
   Map<String, dynamic> toJson() => {
-    'exercise': exercise,
-    'reps': reps,
-    'correctReps': correctReps,
-    'incorrectReps': incorrectReps,
-  };
+        'exercise': exercise,
+        'reps': reps,
+        'correctReps': correctReps,
+        'incorrectReps': incorrectReps,
+      };
 }
 
 class PoseSummary {
@@ -86,17 +119,34 @@ class PoseSummary {
 
 // Partial-range cue: the angle dipped below `shallow` but never reached `active`.
 const _ranges = {
-  'squat': (baseline: 160.0, active: 110.0, shallow: 145.0, code: 'squat_shallow'),
-  'pushup': (baseline: 155.0, active: 105.0, shallow: 140.0, code: 'pushup_shallow'),
-  'bicepsCurl': (baseline: 145.0, active: 105.0, shallow: 130.0, code: 'biceps_partial'),
+  'squat': (
+    baseline: 160.0,
+    active: 110.0,
+    shallow: 145.0,
+    code: 'squat_shallow'
+  ),
+  'pushup': (
+    baseline: 155.0,
+    active: 105.0,
+    shallow: 140.0,
+    code: 'pushup_shallow'
+  ),
+  'bicepsCurl': (
+    baseline: 145.0,
+    active: 105.0,
+    shallow: 130.0,
+    code: 'biceps_partial'
+  ),
 };
 
-double _distance(PosePoint a, PosePoint b) => sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+double _distance(PosePoint a, PosePoint b) =>
+    sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
 
 double? _angle(PosePoint a, PosePoint b, PosePoint c) {
   final ab = _distance(a, b), cb = _distance(c, b);
   if (ab < 0.015 || cb < 0.015) return null;
-  final cos = ((a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y)) / (ab * cb);
+  final cos =
+      ((a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y)) / (ab * cb);
   return acos(cos.clamp(-1.0, 1.0)) * 180 / pi;
 }
 
@@ -123,6 +173,7 @@ class PoseWorkout {
   double _cycleMin = double.infinity;
 
   void resetMotion() {
+    _smoothed = null;
     exercise = null;
     _candidate = null;
     _candidateSince = 0;
@@ -148,9 +199,9 @@ class PoseWorkout {
   }
 
   PoseSummary summary() => PoseSummary(
-    _counts.values.toList(),
-    Map.of(_feedbackCounts),
-  );
+        _counts.values.toList(),
+        Map.of(_feedbackCounts),
+      );
 
   PoseResult _result(bool tracking, List<String> codes, [String? repEvent]) {
     var correct = 0, incorrect = 0;
@@ -198,7 +249,10 @@ class PoseWorkout {
     final previous = _smoothed;
     final next = [
       for (var i = 0; i < raw.length; i++)
-        raw[i] == null || previous == null || i >= previous.length || previous[i] == null
+        raw[i] == null ||
+                previous == null ||
+                i >= previous.length ||
+                previous[i] == null
             ? raw[i]
             : PosePoint(
                 previous[i]!.x + _smoothing * (raw[i]!.x - previous[i]!.x),
@@ -217,7 +271,11 @@ class PoseWorkout {
     double width = 1,
     double height = 1,
   }) {
-    if (width <= 0 || height <= 0 || landmarks.length < 33) {
+    if (!width.isFinite ||
+        !height.isFinite ||
+        width <= 0 ||
+        height <= 0 ||
+        landmarks.length < 33) {
       _smoothed = null;
       return _lost();
     }
@@ -229,10 +287,13 @@ class PoseWorkout {
     final smoothed = _smooth(landmarks);
     final shoulderMode = mode == 'shoulderPress';
     final upperBody = shoulderMode || mode == 'bicepsCurl';
-    final threshold = upperBody ? 0.0 : 0.6;
+    const threshold = 0.6;
     bool visible(int i) {
       final point = landmarks[i];
       return point != null &&
+          point.x.isFinite &&
+          point.y.isFinite &&
+          point.visibility.isFinite &&
           point.x >= 0 &&
           point.x <= 1 &&
           point.y >= 0 &&
@@ -250,7 +311,9 @@ class PoseWorkout {
     _Side? measure(int side) {
       final required = upperBody
           ? [11 + side, 13 + side, 15 + side]
-          : [11 + side, 23 + side, 25 + side, 27 + side];
+          : mode == 'pushup'
+              ? [11 + side, 13 + side, 15 + side, 23 + side, 27 + side]
+              : [11 + side, 23 + side, 25 + side, 27 + side];
       if (!required.every(visible)) return null;
       final shoulder = p[11 + side]!, hip = p[23 + side], ankle = p[27 + side];
       final horizontal = !upperBody &&
@@ -260,10 +323,13 @@ class PoseWorkout {
           (mode == 'auto' && horizontal);
       if (needArms) required.addAll([13 + side, 15 + side]);
       if (!required.every(visible)) return null;
-      final knee = upperBody ? null : _angle(hip!, p[25 + side]!, ankle!);
+      final needsKnee = !upperBody && mode != 'pushup';
+      final knee = needsKnee ? _angle(hip!, p[25 + side]!, ankle!) : null;
       final body = upperBody ? null : _angle(shoulder, hip!, ankle!);
-      final elbow = needArms ? _angle(shoulder, p[13 + side]!, p[15 + side]!) : null;
-      if ((!upperBody && (knee == null || body == null)) ||
+      final elbow =
+          needArms ? _angle(shoulder, p[13 + side]!, p[15 + side]!) : null;
+      if ((needsKnee && knee == null) ||
+          (!upperBody && body == null) ||
           (needArms && elbow == null)) {
         return null;
       }
@@ -294,8 +360,8 @@ class PoseWorkout {
     final torso = !upperBody
         ? _distance(shoulder, selected.hip!)
         : p[11] == null || p[12] == null
-        ? 0.1
-        : _distance(p[11]!, p[12]!);
+            ? 0.1
+            : _distance(p[11]!, p[12]!);
     final upright = upperBody ||
         (shoulder.y < selected.hip!.y && selected.hip!.y < selected.ankle!.y);
     final frontal = visible(11) &&
@@ -303,10 +369,10 @@ class PoseWorkout {
         (p[11]!.x - p[12]!.x).abs() > torso * 0.45;
     final candidate = mode == 'auto'
         ? (selected.horizontal
-              ? 'pushup'
-              : upright
-              ? (frontal ? 'jumpingJack' : 'squat')
-              : null)
+            ? 'pushup'
+            : upright
+                ? (frontal ? 'jumpingJack' : 'squat')
+                : null)
         : mode;
     if (candidate == 'jumpingJack' &&
         ![11, 12, 15, 16, 23, 24, 25, 26, 27, 28].every(visible)) {
@@ -338,7 +404,11 @@ class PoseWorkout {
       case 'squat':
         if (!upright || selected.horizontal) return _lost();
         value = selected.knee!;
-        zone = value > 160 ? 'baseline' : value < 110 ? 'active' : null;
+        zone = value > 160
+            ? 'baseline'
+            : value < 110
+                ? 'active'
+                : null;
         if ((shoulder.x - selected.hip!.x).abs() >
             (shoulder.y - selected.hip!.y).abs() * 0.8) {
           codes.add('squat_torso_lean');
@@ -346,11 +416,19 @@ class PoseWorkout {
       case 'pushup':
         if (!selected.horizontal) return _lost();
         value = selected.elbow!;
-        zone = value > 155 ? 'baseline' : value < 105 ? 'active' : null;
+        zone = value > 155
+            ? 'baseline'
+            : value < 105
+                ? 'active'
+                : null;
         if (selected.body! < 155) codes.add('pushup_body_line');
       case 'bicepsCurl':
         value = selected.elbow!;
-        zone = value > 145 ? 'baseline' : value < 105 ? 'active' : null;
+        zone = value > 145
+            ? 'baseline'
+            : value < 105
+                ? 'active'
+                : null;
         final elbowPoint = p[13 + selected.side]!;
         if ((shoulder.x - elbowPoint.x).abs() >
             (shoulder.y - elbowPoint.y).abs() * 0.8) {
@@ -366,8 +444,8 @@ class PoseWorkout {
         zone = armsDown && spread < 1.3
             ? 'baseline'
             : armsUp && spread > 1.8
-            ? 'active'
-            : null;
+                ? 'active'
+                : null;
         if ((armsDown && spread > 1.8) || (armsUp && spread < 1.3)) {
           codes.add('jack_coordination');
         }
@@ -414,20 +492,31 @@ class PoseWorkout {
     bool Function(int) visible,
     int timestampMs,
   ) {
-    final shoulders = [11, 12].where(visible).map((i) => p[i]!).toList();
-    final wrists = [15, 16].where(visible).map((i) => p[i]!).toList();
-    if (shoulders.isEmpty || wrists.isEmpty) return _lost();
+    if (![11, 12, 13, 14, 15, 16].every(visible)) return _lost();
     exercise = 'shoulderPress';
-    final shoulderY = shoulders.map((s) => s.y).reduce((a, b) => a + b) / shoulders.length;
-    final wristY = wrists.map((s) => s.y).reduce((a, b) => a + b) / wrists.length;
-    final shoulderWidth = shoulders.length > 1 ? (p[11]!.x - p[12]!.x).abs() : 0.1;
-    final margin = max(0.03, shoulderWidth * 0.2);
-    final zone = wristY < shoulderY - margin
-        ? 'active'
-        : wristY > shoulderY + margin
-        ? 'baseline'
-        : null;
-    final codes = wrists.length < 2 ? ['shoulder_press_asymmetry'] : <String>[];
+    final zones = <String?>[];
+    for (final side in [0, 1]) {
+      final shoulder = p[11 + side]!,
+          elbow = p[13 + side]!,
+          wrist = p[15 + side]!;
+      final angle = _angle(shoulder, elbow, wrist);
+      if (angle == null) return _lost();
+      final armLength = _distance(shoulder, elbow);
+      // The rack position has bent elbows and hands at/above shoulder height.
+      // It must not require lowering the weights below the shoulders.
+      zones.add(angle > 150 && wrist.y < shoulder.y - armLength * 0.7
+          ? 'active'
+          : angle >= 45 &&
+                  angle < 120 &&
+                  wrist.y <= shoulder.y + armLength * 0.2 &&
+                  elbow.y >= shoulder.y - armLength * 0.4
+              ? 'baseline'
+              : null);
+    }
+    final zone = zones[0] == zones[1] ? zones[0] : null;
+    final codes = zones.every((z) => z != null) && zones[0] != zones[1]
+        ? ['shoulder_press_asymmetry']
+        : <String>[];
     _track(codes);
     String? repEvent;
     if (zone != _zone) {
@@ -437,17 +526,17 @@ class PoseWorkout {
         _cycleStart = timestampMs;
       }
     }
-    if (zone != null && timestampMs - _zoneSince >= 100) {
+    if (zone != null && timestampMs - _zoneSince >= 150) {
       if (zone == 'baseline') {
         if (_phase == 'active' &&
             _cycleStart != null &&
-            timestampMs - _cycleStart! >= 100) {
+            timestampMs - _cycleStart! >= 300) {
           repEvent = _count('shoulderPress');
         }
         _phase = 'ready';
         _cycleStart = null;
         _bad = false;
-      } else if (zone == 'active' && _phase != 'active') {
+      } else if (zone == 'active' && _phase == 'ready') {
         _phase = 'active';
         _cycleStart ??= timestampMs;
       }

@@ -19,6 +19,50 @@ function run(engine, poses, holdMs = 500) {
   return results;
 }
 
+function shoulderPress(extended, rightExtended = extended) {
+  const p = hidden();
+  for (const side of [0, 1]) {
+    const up = side === 0 ? extended : rightExtended;
+    const sign = side === 0 ? -1 : 1, x = side === 0 ? .4 : .6;
+    p[11+side] = point(x, .45);
+    p[13+side] = up ? point(x + sign*.02, .28) : point(x + sign*.15, .45);
+    p[15+side] = up ? point(x + sign*.04, .11) : point(x + sign*.15, .25);
+  }
+  return p;
+}
+
+test('pushup counts with shoulder, arms, hip and ankle but no knee', () => {
+  function pushup(degrees) {
+    const p=hidden(), r=degrees*Math.PI/180;
+    p[11]=point(.2,.5); p[23]=point(.5,.5); p[27]=point(.8,.5);
+    p[13]=point(.2,.65); p[15]=point(.2+.15*Math.sin(r),.65-.15*Math.cos(r));
+    return p;
+  }
+  const engine=new PoseWorkout(); engine.setExercise('pushup');
+  assert.equal(run(engine,[pushup(180),pushup(90),pushup(180)]).at(-1).correctReps,1);
+});
+
+test('shoulder press counts two rack-overhead-rack cycles with wrists above shoulders', () => {
+  const engine = new PoseWorkout(); engine.setExercise('shoulderPress');
+  const results = run(engine, [shoulderPress(false), shoulderPress(true), shoulderPress(false), shoulderPress(true), shoulderPress(false)]);
+  assert.equal(results.at(-1).correctReps, 2);
+  assert.equal(results.at(-1).exercise, 'shoulderPress');
+});
+
+test('shoulder press rejects static, one-arm and low-confidence movement', () => {
+  const low = shoulderPress(true).map(p => ({...p, visibility: .1}));
+  for (const poses of [
+    [shoulderPress(true)],
+    [shoulderPress(false), shoulderPress(true, false), shoulderPress(false)],
+    [shoulderPress(false), low, shoulderPress(false)],
+  ]) {
+    const engine = new PoseWorkout(); engine.setExercise('shoulderPress');
+    assert.equal(run(engine, poses).at(-1).reps, 0);
+  }
+  const engine = new PoseWorkout(); engine.setExercise('shoulderPress');
+  assert.equal(run(engine, [low]).at(-1).tracking, false);
+});
+
 test('squat counts a full rep and emits a rep event', () => {
   const engine = new PoseWorkout(); engine.setExercise('squat');
   const results = run(engine, [squat(180), squat(90), squat(180)]);

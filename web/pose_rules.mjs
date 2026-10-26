@@ -37,6 +37,7 @@ export class PoseWorkout {
     this.mode='auto'; this.counts={}; this.feedbackCounts={}; this.resetMotion();
   }
   resetMotion() {
+    this.smoothed=null;
     this.exercise=null; this.candidate=null; this.candidateSince=0;
     this.phase='waiting'; this.zone=null; this.zoneSince=0; this.cycleStart=null;
     this.bad=false; this.previousCodes=new Set(); this.lastTime=null; this.side=null;
@@ -74,25 +75,27 @@ export class PoseWorkout {
     this.smoothed=landmarks;
     const shoulderMode = this.mode==='shoulderPress';
     const upperBody = shoulderMode || this.mode==='bicepsCurl';
-    const visibilityThreshold = upperBody ? 0.0 : 0.6;
+    const visibilityThreshold = 0.6;
     const visible=i=>{const point=landmarks[i]; return point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x>=0 && point.x<=1 && point.y>=0 && point.y<=1 && (!Number.isFinite(point.visibility) || point.visibility>=visibilityThreshold);};
     const p=landmarks.map(v=>({...v,x:v?.x*width/height}));
     if (shoulderMode) {
-      const shoulderPoints = [11, 12].filter(visible).map(i => p[i]);
-      const wristPoints = [15, 16].filter(visible).map(i => p[i]);
-      if (shoulderPoints.length === 0 || wristPoints.length === 0) {
+      if (![11,12,13,14,15,16].every(visible)) {
         this.resetMotion();
         return this.result(false, ['tracking']);
       }
-      const shoulderY = shoulderPoints.reduce((sum, point) => sum + point.y, 0) / shoulderPoints.length;
-      const wristY = wristPoints.reduce((sum, point) => sum + point.y, 0) / wristPoints.length;
-      const shoulderWidth = shoulderPoints.length > 1
-        ? Math.abs(p[11].x - p[12].x)
-        : 0.1;
-      const armsUp = wristY < shoulderY - Math.max(0.03, shoulderWidth * 0.2);
-      const armsDown = wristY > shoulderY + Math.max(0.03, shoulderWidth * 0.2);
-      const zone = armsUp ? 'active' : armsDown ? 'baseline' : null;
-      const codes = wristPoints.length < 2 ? ['shoulder_press_asymmetry'] : [];
+      this.exercise='shoulderPress';
+      const zones=[];
+      for (const side of [0,1]) {
+        const shoulder=p[11+side], elbow=p[13+side], wrist=p[15+side];
+        const degrees=angle(shoulder,elbow,wrist);
+        if(degrees===null) { this.resetMotion(); return this.result(false,['tracking']); }
+        const armLength=distance(shoulder,elbow);
+        zones.push(degrees>150 && wrist.y<shoulder.y-armLength*.7 ? 'active'
+          : degrees>=45 && degrees<120 && wrist.y<=shoulder.y+armLength*.2 &&
+            elbow.y>=shoulder.y-armLength*.4 ? 'baseline' : null);
+      }
+      const zone=zones[0]===zones[1] ? zones[0] : null;
+      const codes=zones.every(z=>z!==null) && zones[0]!==zones[1] ? ['shoulder_press_asymmetry'] : [];
       for (const code of codes) {
         if (!this.previousCodes.has(code)) {
           this.feedbackCounts[code] = (this.feedbackCounts[code] ?? 0) + 1;
@@ -108,16 +111,16 @@ export class PoseWorkout {
         }
       }
       let repEvent = null;
-      if (zone && timestampMs - this.zoneSince >= 100) {
+      if (zone && timestampMs - this.zoneSince >= 150) {
         if (zone === 'baseline') {
           if (this.phase === 'active' && this.cycleStart !== null &&
-              timestampMs - this.cycleStart >= 100) {
+              timestampMs - this.cycleStart >= 300) {
             repEvent = this.count(this.mode);
           }
           this.phase = 'ready';
           this.cycleStart = null;
           this.bad = false;
-        } else if (zone === 'active' && this.phase !== 'active') {
+        } else if (zone === 'active' && this.phase === 'ready') {
           this.phase = 'active';
           this.cycleStart ??= timestampMs;
         }
@@ -126,10 +129,10 @@ export class PoseWorkout {
       return this.result(true, codes, null, repEvent);
     }
     const sides=[0,1].map(side=>{
-      const required=shoulderMode
-        ? [11,15].map(i=>i+side)
-        : upperBody
-          ? [11,13,15].map(i=>i+side)
+      const required=upperBody
+        ? [11,13,15].map(i=>i+side)
+        : this.mode==='pushup'
+        ? [11,13,15,23,27].map(i=>i+side)
         : [11,23,25,27].map(i=>i+side);
       if(!required.every(visible)) return null;
       const shoulder=p[11+side], hip=p[23+side], ankle=p[27+side];
@@ -140,10 +143,11 @@ export class PoseWorkout {
         (this.mode==='auto' && horizontal);
       if(needArms) required.push(13+side,15+side);
       if(!required.every(visible)) return null;
-      const knee=upperBody ? null : angle(hip,p[25+side],ankle);
+      const needsKnee=!upperBody && this.mode!=='pushup';
+      const knee=needsKnee ? angle(hip,p[25+side],ankle) : null;
       const body=upperBody ? null : angle(shoulder,hip,ankle);
       const elbow=needArms ? angle(shoulder,p[13+side],p[15+side]) : null;
-      if((!upperBody && (knee===null || body===null)) || (needArms && elbow===null)) return null;
+      if((needsKnee && knee===null) || (!upperBody && body===null) || (needArms && elbow===null)) return null;
       return {side,shoulder,hip,ankle,horizontal,knee,body,elbow,score:Math.min(...required.map(i=>landmarks[i].visibility))};
     }).filter(Boolean).sort((a,b)=>b.score-a.score);
     // Keep a usable side through a cycle so confidence flicker cannot splice two limbs.

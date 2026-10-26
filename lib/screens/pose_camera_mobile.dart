@@ -38,12 +38,18 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
   List<PosePoint?> _points = const [];
   PoseResult? _result;
   String? _error;
+  String? _trackingError;
   String _mode = 'auto';
   DateTime? _startedAt;
   DateTime _spokenAt = DateTime(2000);
   String _spoken = '';
   int _lastFrame = 0;
   bool _busy = false, _running = false, _finishing = false, _voiceOn = true;
+
+  String? get _requestedMode =>
+      poseExerciseFor(widget.exercise?.id) ??
+      poseExerciseFor(widget.exercise?.name);
+  bool get _unsupported => widget.exercise != null && _requestedMode == null;
 
   static String _uuid() {
     final random = Random.secure();
@@ -57,7 +63,7 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
   @override
   void initState() {
     super.initState();
-    _mode = poseExerciseFor(widget.exercise?.id) ?? 'auto';
+    _mode = _requestedMode ?? 'auto';
     _engine.setExercise(_mode);
     // Rotation is derived from the sensor only, so keep the device upright.
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -70,20 +76,29 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
 
   // Serialized so lifecycle changes during permission prompts cannot race.
   void _openCamera() {
+    if (_unsupported) return;
     _cameraTask = _cameraTask.then((_) async {
       await _closeCamera();
       if (!mounted || _finishing) return;
       try {
         _cameras = await availableCameras();
-        if (_cameras.isEmpty) throw CameraException('NoCamera', 'Không tìm thấy camera.');
+        if (_cameras.isEmpty) {
+          throw CameraException('NoCamera', 'Không tìm thấy camera.');
+        }
         // Default to the front camera once; later reopens keep the user's choice.
-        final index = (_cameraIndex ??= max(0, _cameras.indexWhere((c) => c.lensDirection == CameraLensDirection.front))) % _cameras.length;
+        final index = (_cameraIndex ??= max(
+                0,
+                _cameras.indexWhere(
+                    (c) => c.lensDirection == CameraLensDirection.front))) %
+            _cameras.length;
         _cameraIndex = index;
         final camera = CameraController(
           _cameras[index],
           ResolutionPreset.medium,
           enableAudio: false,
-          imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+          imageFormatGroup: Platform.isAndroid
+              ? ImageFormatGroup.nv21
+              : ImageFormatGroup.bgra8888,
         );
         await camera.initialize();
         if (!mounted || _finishing) {
@@ -102,7 +117,8 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
         });
       } catch (error) {
         if (mounted) {
-          setState(() => _error = error is CameraException && error.code.toLowerCase().contains('denied')
+          setState(() => _error = error is CameraException &&
+                  error.code.toLowerCase().contains('denied')
               ? 'Quyền camera bị từ chối. Hãy cho phép camera trong cài đặt rồi thử lại.'
               : 'Không mở được camera.\n$error');
         }
@@ -113,15 +129,19 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
   Future<void> _closeCamera() async {
     final camera = _camera;
     _camera = null;
+    _engine.resetMotion();
     if (camera == null) return;
     if (camera.value.isStreamingImages) await camera.stopImageStream();
     await camera.dispose();
   }
 
   InputImage? _inputImage(CameraImage image, CameraDescription description) {
-    final rotation = InputImageRotationValue.fromRawValue(description.sensorOrientation);
+    final rotation =
+        InputImageRotationValue.fromRawValue(description.sensorOrientation);
     final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    if (rotation == null || format == null || image.planes.length != 1) return null;
+    if (rotation == null || format == null || image.planes.length != 1) {
+      return null;
+    }
     return InputImage.fromBytes(
       bytes: image.planes.first.bytes,
       metadata: InputImageMetadata(
@@ -137,43 +157,73 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
     final camera = _camera;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (_busy || camera == null || now - _lastFrame < 80) return;
-    final input = _inputImage(image, camera.description);
-    if (input == null) return;
-    _busy = true;
     _lastFrame = now;
+    final input = _inputImage(image, camera.description);
+    if (input == null) {
+      _showTrackingError(
+          'Định dạng ảnh camera chưa được hỗ trợ. Hãy đổi camera hoặc mở lại màn hình.',
+          now);
+      return;
+    }
+    _busy = true;
     try {
       final poses = await _detector.processImage(input);
-      if (!mounted) return;
+      if (!mounted || camera != _camera) return;
       // Android frames arrive in sensor orientation; iOS frames are already upright.
-      final rotated = Platform.isAndroid && camera.description.sensorOrientation % 180 != 0;
+      final rotated =
+          Platform.isAndroid && camera.description.sensorOrientation % 180 != 0;
       final w = (rotated ? image.height : image.width).toDouble();
       final h = (rotated ? image.width : image.height).toDouble();
       final landmarks = poses.isEmpty ? null : poses.first.landmarks;
       final points = [
         for (final type in PoseLandmarkType.values)
-          if (landmarks?[type] case final l?) PosePoint(l.x / w, l.y / h, l.likelihood) else null,
+          if (landmarks?[type] case final l?)
+            PosePoint(l.x / w, l.y / h, l.likelihood)
+          else
+            null,
       ];
       if (!_running) {
-        setState(() => _points = points);
+        setState(() {
+          _points = points;
+          _trackingError = null;
+        });
         return;
       }
       final result = _engine.update(points, now, width: w, height: h);
       setState(() {
         _points = points;
         _result = result;
+        _trackingError = null;
       });
       _announce(result);
     } catch (_) {
-      // A dropped frame is harmless; the next frame retries.
+      if (mounted && camera == _camera) {
+        _showTrackingError(
+            'Không xử lý được hình ảnh camera. Hãy đổi camera hoặc mở lại màn hình.',
+            now);
+      }
     } finally {
       _busy = false;
     }
   }
 
+  void _showTrackingError(String message, int timestamp) {
+    if (!mounted) return;
+    setState(() {
+      _points = const [];
+      _result = _engine.update(const [], timestamp);
+      _trackingError = message;
+    });
+  }
+
   void _announce(PoseResult result) {
     if (!_voiceOn) return;
     if (result.repEvent != null) {
-      _say(result.repEvent == 'correct' ? '${result.reps}' : '${result.reps}, chưa đạt', force: true);
+      _say(
+          result.repEvent == 'correct'
+              ? '${result.reps}'
+              : '${result.reps}, chưa đạt',
+          force: true);
     } else if (result.feedbackCodes.isNotEmpty) {
       _say(result.feedback.join(' '));
     }
@@ -202,7 +252,11 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
       }
     });
     if (_voiceOn) {
-      _say(_running ? 'Bắt đầu ${poseExerciseNames[_mode] ?? 'tập'}. Cố lên!' : 'Tạm dừng.', force: true);
+      _say(
+          _running
+              ? 'Bắt đầu ${poseExerciseNames[_mode] ?? 'tập'}. Cố lên!'
+              : 'Tạm dừng.',
+          force: true);
     }
   }
 
@@ -218,7 +272,9 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
     final seconds = _elapsed.elapsed.inSeconds;
     final reps = summary.exercises.fold(0, (sum, e) => sum + e.reps);
     final correct = summary.exercises.fold(0, (sum, e) => sum + e.correctReps);
-    if (_voiceOn) _say('Hoàn thành. $reps lần, $correct lần đúng form.', force: true);
+    if (_voiceOn) {
+      _say('Hoàn thành. $reps lần, $correct lần đúng form.', force: true);
+    }
     String? saveError;
     var saved = false;
     Future<void> save() async {
@@ -250,13 +306,18 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Hoàn thành buổi tập', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+                const Text('Hoàn thành buổi tập',
+                    style:
+                        TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 Text('$seconds giây hoạt động'),
                 for (final e in summary.exercises)
-                  Text('${poseExerciseNames[e.exercise]}: ${e.reps} lần · ${e.correctReps} đạt · ${e.incorrectReps} có lỗi'),
+                  Text(
+                      '${poseExerciseNames[e.exercise]}: ${e.reps} lần · ${e.correctReps} đạt · ${e.incorrectReps} có lỗi'),
                 const SizedBox(height: 12),
-                Text(saved ? 'Đã lưu vào tài khoản và cập nhật thử thách.' : saveError ?? 'Chưa có thời gian tập để lưu.'),
+                Text(saved
+                    ? 'Đã lưu vào tài khoản và cập nhật thử thách.'
+                    : saveError ?? 'Chưa có thời gian tập để lưu.'),
                 if (saveError != null)
                   TextButton(
                     onPressed: () async {
@@ -266,7 +327,8 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
                     child: const Text('Thử lưu lại'),
                   ),
                 const SizedBox(height: 20),
-                PrimaryButton(label: 'Xong', onPressed: () => Navigator.pop(sheet)),
+                PrimaryButton(
+                    label: 'Xong', onPressed: () => Navigator.pop(sheet)),
               ],
             ),
           ),
@@ -278,7 +340,8 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       if (_running) _toggle();
       _cameraTask = _cameraTask.then((_) => _closeCamera());
     } else if (state == AppLifecycleState.resumed && !_finishing) {
@@ -292,28 +355,41 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
     _clock?.cancel();
     _finishing = true;
     SystemChrome.setPreferredOrientations([]);
-    unawaited(_cameraTask.then((_) => _closeCamera()).then((_) => _detector.close()));
+    unawaited(
+        _cameraTask.then((_) => _closeCamera()).then((_) => _detector.close()));
     unawaited(_voice.dispose());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_unsupported) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.exercise!.name)),
+        body: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+              'Bài tập này chưa được hỗ trợ đếm rep. Các bài hiện có: Squat, chống đẩy, Jumping Jack, đẩy vai và tay trước.'),
+        ),
+      );
+    }
     final camera = _camera;
     final result = _result;
     final seconds = _elapsed.elapsed.inSeconds;
     final state = result == null || !result.tracking
         ? Colors.purpleAccent
         : result.feedbackCodes.isEmpty
-        ? Colors.greenAccent
-        : Colors.redAccent;
-    final message = !_running
-        ? 'Đặt máy để thấy toàn thân, rồi bấm Bắt đầu.'
-        : result == null
-        ? 'Đang nhận diện…'
-        : result.feedbackCodes.isNotEmpty
-        ? result.feedback.join(' ')
-        : 'Tốt lắm, tiếp tục động tác đủ biên độ.';
+            ? Colors.greenAccent
+            : Colors.redAccent;
+    final message = _trackingError != null
+        ? _trackingError!
+        : !_running
+            ? 'Đặt máy để thấy toàn thân, rồi bấm Bắt đầu.'
+            : result == null
+                ? 'Đang nhận diện…'
+                : result.feedbackCodes.isNotEmpty
+                    ? result.feedback.join(' ')
+                    : 'Tốt lắm, tiếp tục động tác đủ biên độ.';
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -342,29 +418,33 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
           padding: const EdgeInsets.all(16),
           children: [
             AspectRatio(
-              aspectRatio: camera?.value.isInitialized == true ? 1 / camera!.value.aspectRatio : 3 / 4,
+              aspectRatio: camera?.value.isInitialized == true
+                  ? 1 / camera!.value.aspectRatio
+                  : 3 / 4,
               child: _error != null
                   ? Center(child: Text(_error!, textAlign: TextAlign.center))
                   : camera?.value.isInitialized != true
-                  ? const Center(child: CircularProgressIndicator())
-                  : Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CameraPreview(camera!),
-                        CustomPaint(
-                          painter: _SkeletonPainter(
-                            _points,
-                            state,
-                            mirror: camera.description.lensDirection == CameraLensDirection.front,
-                          ),
+                      ? const Center(child: CircularProgressIndicator())
+                      : Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            CameraPreview(camera!),
+                            CustomPaint(
+                              painter: _SkeletonPainter(
+                                _points,
+                                state,
+                                mirror: camera.description.lensDirection ==
+                                    CameraLensDirection.front,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                _stat('Thời gian', '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}'),
+                _stat('Thời gian',
+                    '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}'),
                 _stat('Tổng', '${result?.reps ?? 0}'),
                 _stat('Đúng form', '${result?.correctReps ?? 0}'),
                 _stat('Có lỗi', '${result?.incorrectReps ?? 0}'),
@@ -377,15 +457,20 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
               initialValue: _mode,
               decoration: const InputDecoration(labelText: 'Bài tập'),
               items: [
-                const DropdownMenuItem(value: 'auto', child: Text('Tự nhận diện')),
-                for (final e in poseExercises) DropdownMenuItem(value: e, child: Text(poseExerciseNames[e]!)),
+                const DropdownMenuItem(
+                    value: 'auto', child: Text('Tự nhận diện')),
+                for (final e in poseExercises)
+                  DropdownMenuItem(
+                      value: e, child: Text(poseExerciseNames[e]!)),
               ],
-              onChanged: _finishing || _startedAt != null // backend accepts at most 3 exercises per session
+              onChanged: _finishing ||
+                      _startedAt !=
+                          null // backend accepts at most 3 exercises per session
                   ? null
                   : (value) => setState(() {
-                      _mode = value!;
-                      _engine.setExercise(_mode);
-                    }),
+                        _mode = value!;
+                        _engine.setExercise(_mode);
+                      }),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -394,7 +479,11 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
                 FilledButton.icon(
                   onPressed: camera == null || _finishing ? null : _toggle,
                   icon: Icon(_running ? Icons.pause : Icons.play_arrow),
-                  label: Text(_running ? 'Tạm dừng' : _startedAt == null ? 'Bắt đầu' : 'Tiếp tục'),
+                  label: Text(_running
+                      ? 'Tạm dừng'
+                      : _startedAt == null
+                          ? 'Bắt đầu'
+                          : 'Tiếp tục'),
                 ),
                 OutlinedButton(
                   onPressed: _startedAt == null || _finishing ? null : _finish,
@@ -405,7 +494,9 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
             const SizedBox(height: 8),
             Text(
               'Nhận diện chạy ngay trên máy, không gửi ảnh đi. Squat/chống đẩy: quay ngang. '
-              'Jumping Jack/đẩy vai: quay chính diện.',
+              'Jumping Jack/đẩy vai: quay chính diện. '
+              'Đẩy vai và tay trước cần chọn đúng bài trước khi Bắt đầu. '
+              'Đẩy vai: hạ tạ về ngang vai, đẩy lên duỗi tay rồi hạ về ngang vai để tính 1 rep.',
               style: TextStyle(color: GymColors.muted, fontSize: 12),
             ),
           ],
@@ -415,21 +506,37 @@ class _MobilePoseCameraScreenState extends State<MobilePoseCameraScreen>
   }
 
   Widget _stat(String label, String value) => Expanded(
-    child: Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-        Text(label, style: TextStyle(fontSize: 11, color: GymColors.muted)),
-      ],
-    ),
-  );
+        child: Column(
+          children: [
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            Text(label, style: TextStyle(fontSize: 11, color: GymColors.muted)),
+          ],
+        ),
+      );
 }
 
 class _SkeletonPainter extends CustomPainter {
   _SkeletonPainter(this.points, this.color, {required this.mirror});
 
   static const _edges = [
-    [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24],
-    [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [29, 31], [28, 30], [30, 32],
+    [11, 12],
+    [11, 13],
+    [13, 15],
+    [12, 14],
+    [14, 16],
+    [11, 23],
+    [12, 24],
+    [23, 24],
+    [23, 25],
+    [25, 27],
+    [24, 26],
+    [26, 28],
+    [27, 29],
+    [29, 31],
+    [28, 30],
+    [30, 32],
   ];
   final List<PosePoint?> points;
   final Color color;
@@ -457,5 +564,6 @@ class _SkeletonPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SkeletonPainter old) => old.points != points || old.color != color;
+  bool shouldRepaint(_SkeletonPainter old) =>
+      old.points != points || old.color != color;
 }
